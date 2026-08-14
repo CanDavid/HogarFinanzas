@@ -53,7 +53,9 @@ Estado: **implementada localmente; pendiente de despliegue y validación externa
 - Revisión visual local a 390 × 844 px en modo oscuro: corregido contraste de etiquetas y comprobada la pantalla de acceso.
 - `npm install`: 0 vulnerabilidades notificadas.
 - GitHub Actions `PWA CI #2` sobre `b8152fd`: verde en Linux (lint, typecheck, 27 tests y build), sin anotaciones.
-- Repositorio convertido a público y Pages configurado con origen GitHub Actions. Los runs #1/#2 quedaron como evidencia del bloqueo previo; el siguiente push debe validar el despliegue real.
+- Repositorio público y Pages configurado con origen GitHub Actions.
+- `PWA CI #3` y `Deploy GitHub Pages #3` sobre `9e930ae`: verdes.
+- PWA accesible en `https://candavid.github.io/HogarFinanzas/`; HTML, manifest y service worker comprobados por HTTPS con respuesta 200.
 - Las acciones oficiales usan sus releases Node 24; los avisos de runtime del primer run quedaron eliminados.
 
 ### Criterio de salida
