@@ -53,7 +53,7 @@ Estado: **implementada localmente; pendiente de despliegue y validación externa
 - Revisión visual local a 390 × 844 px en modo oscuro: corregido contraste de etiquetas y comprobada la pantalla de acceso.
 - `npm install`: 0 vulnerabilidades notificadas.
 - GitHub Actions `PWA CI #2` sobre `b8152fd`: verde en Linux (lint, typecheck, 27 tests y build), sin anotaciones.
-- GitHub Pages #2: bloqueado en `configure-pages` porque Pages aún no está habilitado y el repositorio continúa privado; no es un fallo de compilación. Requiere los pasos externos acordados.
+- Repositorio convertido a público y Pages configurado con origen GitHub Actions. Los runs #1/#2 quedaron como evidencia del bloqueo previo; el siguiente push debe validar el despliegue real.
 - Las acciones oficiales usan sus releases Node 24; los avisos de runtime del primer run quedaron eliminados.
 
 ### Criterio de salida
