@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { TransactionForm } from './components/TransactionForm'
 import { LocalFinanceRepository } from './data/localFinanceRepository'
+import { normalizeDateOnly } from './domain/dates'
 import { calculateTotals } from './domain/finance'
 import { formatEuro } from './domain/money'
 import type { Session, Transaction, TransactionInput, UserId } from './domain/types'
@@ -184,5 +185,7 @@ function Login({ onAuthenticated }: { onAuthenticated(session: Session): void })
 }
 
 function formatDate(date: string): string {
-  return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`))
+  const normalized = normalizeDateOnly(date)
+  if (!normalized) return 'Fecha no válida'
+  return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${normalized}T00:00:00Z`))
 }

@@ -47,7 +47,17 @@ interface ScriptContext {
 }
 
 function loadScript(): ScriptContext {
-  const context: Record<string, unknown> = { Date, JSON, Math, Number, String, Error }
+  const context: Record<string, unknown> = {
+    Date, JSON, Math, Number, String, Error,
+    Session: { getScriptTimeZone: () => 'Europe/Madrid' },
+    Utilities: {
+      formatDate(value: Date) {
+        const parts = new Intl.DateTimeFormat('en', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit' })
+          .formatToParts(value).reduce<Record<string, string>>((result, part) => ({ ...result, [part.type]: part.value }), {})
+        return `${parts.year}-${parts.month}-${parts.day}`
+      },
+    },
+  }
   runInNewContext(readFileSync(new URL('../apps-script/Code.gs', import.meta.url), 'utf8'), context)
   return context as unknown as ScriptContext
 }
@@ -80,6 +90,15 @@ describe('Apps Script sync core with Sheets adapter', () => {
     expect(first.changes).toHaveLength(1)
     expect(first.cursor).toBe(1)
     expect(script.pullChanges_(first.cursor, spreadsheet).changes).toEqual([])
+  })
+
+  it('normalizes dates coerced by Google Sheets before returning them', () => {
+    const script = loadScript(); const spreadsheet = new FakeSpreadsheet()
+    script.applyOperation_(spreadsheet, operation('op-create', 'create'), 'david')
+    const transactionSheet = spreadsheet.getSheetByName('Transactions')
+    if (!transactionSheet) throw new Error('Missing Transactions sheet')
+    transactionSheet.rows[1][10] = new Date('2026-08-13T22:00:00.000Z')
+    expect(script.pullChanges_(0, spreadsheet).changes[0].date).toBe('2026-08-14')
   })
 
   it('deterministically keeps the last accepted concurrent edit', () => {

@@ -1,6 +1,6 @@
-/* global ContentService, LockService, PropertiesService, SpreadsheetApp, Utilities */
+/* global ContentService, LockService, PropertiesService, Session, SpreadsheetApp, Utilities */
 
-const APP_VERSION = '1.0.0-phase1';
+const APP_VERSION = '1.0.1-phase1';
 const SESSION_DAYS = 30;
 const ALLOWED_USERS = ['david', 'esther'];
 const SHEETS = {
@@ -232,11 +232,24 @@ function sheetValue_(value) { return value === null || value === undefined ? '' 
 
 function normalizeTransaction_(row) {
   return {
-    id: String(row.id), createdAt: String(row.createdAt), updatedAt: String(row.updatedAt),
-    deletedAt: row.deletedAt ? String(row.deletedAt) : null, createdBy: String(row.createdBy),
+    id: String(row.id), createdAt: normalizeTimestampCell_(row.createdAt), updatedAt: normalizeTimestampCell_(row.updatedAt),
+    deletedAt: row.deletedAt ? normalizeTimestampCell_(row.deletedAt) : null, createdBy: String(row.createdBy),
     version: Number(row.version), changeSequence: Number(row.changeSequence), kind: String(row.kind),
-    amountCents: Number(row.amountCents), concept: String(row.concept), date: String(row.date),
+    amountCents: Number(row.amountCents), concept: String(row.concept), date: normalizeDateCell_(row.date),
   };
+}
+
+function normalizeTimestampCell_(value) {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toISOString();
+}
+
+function normalizeDateCell_(value) {
+  const text = String(value);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return text;
+  return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
 
 function openSpreadsheet_() {

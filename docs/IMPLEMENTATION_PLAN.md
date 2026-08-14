@@ -39,6 +39,7 @@ Estado: **implementada y publicada; transporte validado en Windows, pendiente de
 
 ### Validaciones abiertas
 
+- Desplegar el hotfix `1.0.1-phase1` de Apps Script y repetir el caso que provocó la pantalla blanca.
 - Probar que Safari en ambos iPhone lee el POST redirigido del Web App.
 - Confirmar el acceso real como David y Esther sin compartir la clave doméstica.
 - Validar CRUD, offline y concurrencia en ambos iPhone.
@@ -60,6 +61,7 @@ Estado: **implementada y publicada; transporte validado en Windows, pendiente de
 - Spike de transporte superado en el navegador de Windows: la PWA publicó un POST `text/plain`, leyó la respuesta redirigida y mostró el error de credenciales esperado para una clave ficticia. No se usó ni almacenó la clave doméstica real.
 - Variable pública de repositorio `VITE_APPS_SCRIPT_URL` configurada en GitHub Actions para incorporar el endpoint al build de Pages; no contiene secretos.
 - `PWA CI #4` y `Deploy GitHub Pages #4` sobre `91e3d6e`: verdes. La comprobación HTTPS posterior confirmó que el bundle servido responde 200 e incluye el identificador del despliegue Apps Script configurado.
+- Durante la aceptación en iPhone, el primer pull real reveló que Sheets puede convertir `date` en un objeto `Date`; su representación textual provocaba una excepción de formato y pantalla blanca. El hotfix `1.0.1-phase1` normaliza fechas/timestamps en Apps Script, repara fechas ya persistidas en IndexedDB y evita que una fecha inválida derribe la interfaz. Validación local del hotfix: lint, typecheck y build verdes; 8 archivos y 32 tests verdes. Pendiente de despliegue y repetición en los dispositivos.
 
 ### Criterio de salida
 

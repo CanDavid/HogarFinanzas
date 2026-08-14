@@ -7,6 +7,7 @@ import type {
   TransactionInput,
   UserId,
 } from '../domain/types'
+import { normalizeDateOnly } from '../domain/dates'
 import { assertMoneyCents } from '../domain/money'
 import { getDatabase, type StoredMeta } from './database'
 
@@ -15,7 +16,11 @@ const DEFAULT_SERVER_URL = import.meta.env.VITE_APPS_SCRIPT_URL ?? ''
 export class LocalFinanceRepository implements SyncRepository {
   async listTransactions(): Promise<Transaction[]> {
     const database = await getDatabase()
-    return (await database.getAll('transactions'))
+    const stored = await database.getAll('transactions')
+    const transactions = stored.map(normalizeTransactionDate)
+    await Promise.all(transactions.filter((transaction, index) => transaction.date !== stored[index].date)
+      .map((transaction) => database.put('transactions', transaction)))
+    return transactions
       .filter((transaction) => !transaction.deletedAt)
       .sort((left, right) => right.date.localeCompare(left.date) || right.updatedAt.localeCompare(left.updatedAt))
   }
@@ -87,7 +92,7 @@ export class LocalFinanceRepository implements SyncRepository {
       if (!operation) continue
       if (result.ok) {
         await transaction.objectStore('outbox').delete(result.operationId)
-        if (result.record) await transaction.objectStore('transactions').put(result.record)
+        if (result.record) await transaction.objectStore('transactions').put(normalizeTransactionDate(result.record))
       } else {
         operation.attempts += 1
         operation.lastError = result.error?.message ?? 'Error de sincronización'
@@ -101,7 +106,8 @@ export class LocalFinanceRepository implements SyncRepository {
   async mergeServerChanges(changes: Transaction[]): Promise<void> {
     const database = await getDatabase()
     const transaction = database.transaction('transactions', 'readwrite')
-    for (const remote of changes) {
+    for (const rawRemote of changes) {
+      const remote = normalizeTransactionDate(rawRemote)
       const local = await transaction.store.get(remote.id)
       if (!local || remote.version >= local.version) await transaction.store.put(remote)
     }
@@ -149,6 +155,11 @@ export class LocalFinanceRepository implements SyncRepository {
     const database = await getDatabase()
     await database.put('meta', { key, value })
   }
+}
+
+function normalizeTransactionDate(transaction: Transaction): Transaction {
+  const date = normalizeDateOnly(transaction.date)
+  return date && date !== transaction.date ? { ...transaction, date } : transaction
 }
 
 function validateInput(input: TransactionInput): void {
