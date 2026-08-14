@@ -53,6 +53,13 @@ Build y tests verdes sin warnings relevantes.
 
 Estado: [ ] Pendiente
 
+## Estado de ejecución — 2026-08-14
+
+- Bootstrap, targets, pruebas y workflow macOS preparados desde Windows.
+- Pendiente conectar el repositorio privado de GitHub y obtener un build/test verde en Actions.
+- La prueba manual de esta fase se sustituye, por acuerdo, por el UI test en simulador; no se ha probado todavía en iPhone físico.
+- La fase no se marcará como completada hasta recibir el resultado verde del workflow.
+
 ---
 
 # Fase 1 — Spike de persistencia + CloudKit Sharing
@@ -633,3 +640,27 @@ Consecuencias: evita duplicar movimientos y reduce riesgo de inconsistencias de 
 Decisión: aportaciones a objetivos no modifican patrimonio salvo que exista además una transferencia real.
 
 Consecuencias: no se duplica dinero contablemente.
+
+### 2026-08-14 — Desarrollo desde Windows
+
+Contexto: el equipo de trabajo actual no dispone localmente de Xcode ni del SDK de iOS.
+
+Decisión: mantener un proyecto Xcode versionado con grupos sincronizados y usar GitHub Actions sobre macOS 15, Xcode 16.4 y simulador iOS 18.5 como autoridad de build y tests.
+
+Consecuencias: el código puede prepararse desde Windows, pero ninguna fase se cerrará sin validación real en macOS; la Fase 0 usa el UI test de CI en lugar de prueba manual.
+
+### 2026-08-14 — Identidad inicial de la app
+
+Contexto: CloudKit de la Fase 1 necesita una identidad estable.
+
+Decisión: usar `com.david.HogarFinanzas` como bundle identifier definitivo y iOS 18.0 como deployment target mínimo.
+
+Consecuencias: se evita renombrar la aplicación al configurar capacidades, pero la disponibilidad del identificador deberá verificarse al contratar Apple Developer Program.
+
+### 2026-08-14 — Distribución y CloudKit pendientes de membresía
+
+Contexto: todavía no hay una membresía activa de Apple Developer Program.
+
+Decisión: la Fase 0 se valida sin firma en simulador y no se inicia la Fase 1 hasta disponer de la membresía y poder configurar iCloud.
+
+Consecuencias: la ausencia de membresía no bloquea el bootstrap, pero sí el spike obligatorio de CloudKit Sharing y la instalación mediante TestFlight.

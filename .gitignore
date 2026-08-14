@@ -1,0 +1,15 @@
+# Xcode user state
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+
+# Build and test output
+DerivedData/
+.build/
+*.xcresult
+build/
+
+# Local operating-system files
+.DS_Store
+Thumbs.db
