@@ -3,9 +3,9 @@ import { createRoot } from 'react-dom/client'
 import { registerSW } from 'virtual:pwa-register'
 import App from './App'
 
-registerSW({
+const updateServiceWorker = registerSW({
   onNeedRefresh() {
-    if (window.confirm('Hay una nueva versión disponible. ¿Actualizar ahora?')) window.location.reload()
+    if (window.confirm('Hay una nueva versión disponible. ¿Actualizar ahora?')) void updateServiceWorker(true)
   },
 })
 
