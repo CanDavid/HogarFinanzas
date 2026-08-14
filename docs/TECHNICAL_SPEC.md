@@ -24,11 +24,11 @@ React UI
 
 La UI siempre lee IndexedDB y escribe localmente antes de intentar red. El dominio no importa React, IndexedDB ni Google. Repositorio y transporte son sustituibles en tests.
 
-## 3. Modelo de Fase 1
+## 3. Modelo hasta Fase 2
 
 ```ts
 type UserId = 'david' | 'esther'
-type TransactionKind = 'income' | 'expense' | 'transfer'
+type TransactionKind = 'income' | 'expense' | 'transfer' | 'adjustment'
 
 interface Transaction {
   id: string
@@ -42,19 +42,43 @@ interface Transaction {
   amountCents: number
   concept: string
   date: string
+  accountId: string | null
+  categoryId: string | null
+  sourceAccountId: string | null
+  destinationAccountId: string | null
+}
+
+interface Account {
+  // metadatos SyncableRecord
+  name: string
+  type: 'checking' | 'savings' | 'investment' | 'cash'
+  initialBalanceCents: number
+  includeInNetWorth: boolean
+  includeInLiquidity: boolean
+  archivedAt: string | null
+}
+
+interface Category {
+  // metadatos SyncableRecord
+  name: string
+  kind: 'income' | 'expense'
+  icon: string
+  archivedAt: string | null
 }
 ```
 
 - UUID en cliente; timestamps ISO-8601 UTC; `date` es `YYYY-MM-DD`.
 - Dinero como entero seguro positivo en céntimos, validado con `Number.isSafeInteger`.
-- `transfer` queda reservado y probado, pero no se crea en UI hasta existir cuentas.
+- `transfer` es un único movimiento con origen/destino; `adjustment` aplica una variación firmada a una cuenta. Ninguno cuenta como ingreso o gasto.
 - La eliminación asigna `deletedAt`; no borra la fila compartida.
+- Cuentas y categorías con histórico se archivan mediante `archivedAt`; no se eliminan.
 
 ## 4. IndexedDB
 
-Base `hogar-finanzas`, versión 1:
+Base `hogar-finanzas`, versión 2:
 
 - `transactions`, clave `id`, incluidos tombstones recibidos;
+- `accounts` y `categories`, clave `id`, incluidos registros archivados;
 - `outbox`, clave `operationId`, operaciones pendientes y errores;
 - `meta`, clave `key`, para cursor, sesión y URL pública.
 
@@ -62,7 +86,7 @@ Movimiento y operación se guardan en una única transacción IndexedDB. Recarga
 
 ## 5. Sincronización
 
-Cada `SyncOperation` contiene UUID propio, tipo create/update/delete, record ID, snapshot, versión base, intentos y error. La API ofrece:
+Cada `SyncOperation` contiene UUID propio, `entityType`, tipo create/update/delete, record ID, snapshot, versión base, intentos y error. La API ofrece:
 
 - `GET`: salud y versión, sin información privada.
 - `POST login`: usuario + clave doméstica; devuelve token y expiración.
@@ -87,7 +111,7 @@ El POST usa `text/plain;charset=utf-8`, sigue la redirección de ContentService 
 
 ## 6. Google Sheets y Apps Script
 
-El inicializador idempotente crea `Meta`, `Users`, `Transactions` y `SyncOperations`, funcionales ahora, y reserva `Accounts`, `Categories`, `RecurringRules`, `Budgets`, `Goals`, `GoalAllocations` y `MonthlyClosures` sin implementar sus reglas.
+El inicializador idempotente crea todas las hojas. En Fase 2 son funcionales `Meta`, `Users`, `Accounts`, `Categories`, `Transactions` y `SyncOperations`; el resto continúa reservado. `migratePhase2` amplía cabeceras sin borrar filas y siembra categorías iniciales de forma idempotente.
 
 Apps Script revalida identidad, UUIDs, fechas, concepto e importe. Las operaciones están protegidas por Script Lock.
 
@@ -107,7 +131,7 @@ Apps Script revalida identidad, UUIDs, fechas, concepto e importe. Las operacion
 - Workbox precachea el app shell y proporciona fallback de navegación.
 - Actualización avisada antes de recargar; sin dependencia de Background Sync.
 - Mobile-first, safe areas, modo oscuro, zoom/tipos dinámicos, etiquetas y mensajes accesibles.
-- La Fase 1 muestra login, resumen, CRUD y sync. El resto de navegación es futuro.
+- La Fase 2 añade gestión mínima de cuentas/categorías, patrimonio, liquidez, transferencias y ajustes. La navegación definitiva y consulta avanzada pertenecen a Fase 3.
 
 ## 9. Build y CI
 
@@ -125,7 +149,7 @@ npm run build
 
 ## 10. Pruebas y aceptación
 
-Automatización: céntimos; transferencias; tombstones; persistencia y cola; resultados/fallos; cursor y sesión; formulario accesible; router Apps Script; manifest/service worker.
+Automatización: céntimos; saldos, patrimonio, liquidez, transferencias y ajustes; archivado; tombstones; persistencia y cola por entidad; cursor y sesión; formularios accesibles; router Apps Script; manifest/service worker.
 
 Aceptación real obligatoria:
 
@@ -139,13 +163,12 @@ Si Chromium o Safari no pueden leer la respuesta redirigida por política CORS, 
 
 ## 11. Fases futuras
 
-1. Fase 2: cuentas, categorías y núcleo financiero.
-2. Fase 3: movimientos completos, transferencias y navegación.
-3. Fase 4: recurrencias.
-4. Fase 5: presupuestos y plan.
-5. Fase 6: objetivos y patrimonio.
-6. Fase 7: cierres mensuales.
-7. Fase 8: análisis.
-8. Fase 9: robustez, accesibilidad, exportación y copias.
+1. Fase 3: movimientos completos y navegación.
+2. Fase 4: recurrencias.
+3. Fase 5: presupuestos y plan.
+4. Fase 6: objetivos y patrimonio.
+5. Fase 7: cierres mensuales.
+6. Fase 8: análisis.
+7. Fase 9: robustez, accesibilidad, exportación y copias.
 
 No se anticipan capacidades futuras.

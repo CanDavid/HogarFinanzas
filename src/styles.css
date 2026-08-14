@@ -1,7 +1,7 @@
 :root { font-family: Inter, ui-rounded, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172622; background: #f4f1e8; font-synthesis: none; line-height: 1.45; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: radial-gradient(circle at top right, #d8e8d6 0, transparent 32rem), #f4f1e8; }
-button, input { font: inherit; }
+button, input, select { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: wait; opacity: .6; }
 .app-shell { width: min(100%, 46rem); margin: 0 auto; min-height: 100vh; padding: env(safe-area-inset-top) 1rem env(safe-area-inset-bottom); }
@@ -22,14 +22,19 @@ h2 { margin-bottom: 1rem; font-size: 1.15rem; }
 .card { padding: 1.1rem; border: 1px solid #e2ded2; border-radius: 1.25rem; background: #fff; box-shadow: 0 12px 36px #2a44380d; }
 .movement-form, .login form { display: grid; gap: .9rem; }
 label { display: grid; gap: .35rem; color: #40534e; font-size: .82rem; font-weight: 700; }
-input { width: 100%; min-height: 2.9rem; padding: .65rem .75rem; border: 1px solid #cbd3cd; border-radius: .75rem; color: #172622; background: #fbfcfa; font-size: 1rem; }
-input:focus { outline: 3px solid #80ab9a66; border-color: #31705d; }
+input, select { width: 100%; min-height: 2.9rem; padding: .65rem .75rem; border: 1px solid #cbd3cd; border-radius: .75rem; color: #172622; background: #fbfcfa; font-size: 1rem; }
+input:focus, select:focus { outline: 3px solid #80ab9a66; border-color: #31705d; }
 .amount-field { position: relative; }
 .amount-field input { padding-right: 2.4rem; font-size: 1.5rem; font-weight: 750; }
 .amount-field span { position: absolute; right: .85rem; top: .7rem; font-size: 1.15rem; }
 .segmented { display: grid; grid-template-columns: 1fr 1fr; gap: .3rem; padding: .25rem; border-radius: .8rem; background: #edf0eb; }
 .segmented button { padding: .6rem; border: 0; border-radius: .6rem; color: #496059; background: transparent; }
 .segmented button[aria-pressed="true"] { color: #fff; background: #173f35; box-shadow: 0 2px 8px #173f3533; }
+.segmented.four { grid-template-columns: repeat(2, 1fr); }
+.field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
+.section-nav { display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem; margin-bottom: .8rem; padding: .3rem; border-radius: .9rem; background: #e3e9e3; }
+.section-nav button { padding: .6rem .25rem; border: 0; border-radius: .65rem; color: #496059; background: transparent; font-size: .8rem; }
+.section-nav button[aria-pressed="true"] { color: #fff; background: #173f35; }
 .form-actions { display: flex; justify-content: flex-end; gap: .6rem; }
 form > button, .form-actions button { min-height: 2.8rem; padding: .65rem 1rem; border: 0; border-radius: .75rem; color: #fff; background: #e15f3b; font-weight: 750; }
 .form-actions .secondary { color: #3e514b; background: #edf0eb; }
@@ -52,6 +57,17 @@ form > button, .form-actions button { min-height: 2.8rem; padding: .65rem 1rem; 
 .kind-icon.expense { color: #a84a33; background: #f2dfd9; }
 .delete { padding: .5rem; border: 0; color: #9a371f; background: transparent; font-size: .75rem; }
 .empty { margin-top: 1rem; padding: 1.2rem; border: 1px dashed #b8c4bd; border-radius: 1rem; color: #61716b; text-align: center; }
+.management { padding: 1.2rem .1rem; }
+.management > .card { margin: 1rem 0; }
+.compact-form { display: grid; gap: .8rem; }
+.management ul { padding: 0; list-style: none; }
+.management li { display: grid; grid-template-columns: 1fr auto; align-items: center; border-bottom: 1px solid #dddcd4; }
+.management li.archived { opacity: .58; }
+.management-main { padding: .85rem .2rem; border: 0; color: inherit; background: transparent; text-align: left; }
+.management-main strong, .management-main small { display: block; }
+.management-main small { color: #6d7c77; }
+.check { grid-template-columns: auto 1fr; align-items: center; }
+.check input { width: 1.2rem; min-height: 1.2rem; }
 footer { padding: 1rem 0 2rem; color: #71817b; text-align: center; font-size: .72rem; }
 .login { width: min(100% - 2rem, 30rem); margin: 0 auto; padding: max(2rem, env(safe-area-inset-top)) 0; }
 .login .brand-mark { margin-bottom: 2rem; font-size: 1.5rem; }
@@ -64,4 +80,4 @@ footer { padding: 1rem 0 2rem; color: #71817b; text-align: center; font-size: .7
 .privacy { margin-top: 1rem; color: #6c7b76; text-align: center; font-size: .75rem; }
 .center { min-height: 100vh; display: grid; place-items: center; }
 @media (min-width: 42rem) { .summary { grid-template-columns: repeat(3, 1fr); } .summary .balance { grid-column: auto; } }
-@media (prefers-color-scheme: dark) { :root { color: #eef5f1; background: #0f1815; } body { background: radial-gradient(circle at top right, #1d3c33, transparent 32rem), #0f1815; } .card, .summary div, .sync-banner { border-color: #30423c; background: #18241f; } .summary .balance, .segmented button[aria-pressed="true"] { background: #397864; } input { border-color: #40554d; color: #eef5f1; background: #111c18; } label, .login legend { color: #d4e1dc; } .eyebrow, .login .intro, .login summary, .privacy { color: #aebfb8; } .segmented { background: #26352f; } .segmented button { color: #d0ddd8; } .movements li { border-color: #2b3934; } .form-actions .secondary { color: #d4dfda; background: #2a3933; } }
+@media (prefers-color-scheme: dark) { :root { color: #eef5f1; background: #0f1815; } body { background: radial-gradient(circle at top right, #1d3c33, transparent 32rem), #0f1815; } .card, .summary div, .sync-banner { border-color: #30423c; background: #18241f; } .summary .balance, .segmented button[aria-pressed="true"], .section-nav button[aria-pressed="true"] { background: #397864; } input, select { border-color: #40554d; color: #eef5f1; background: #111c18; } label, .login legend { color: #d4e1dc; } .eyebrow, .login .intro, .login summary, .privacy { color: #aebfb8; } .segmented, .section-nav { background: #26352f; } .segmented button, .section-nav button { color: #d0ddd8; } .movements li, .management li { border-color: #2b3934; } .form-actions .secondary { color: #d4dfda; background: #2a3933; } }

@@ -68,10 +68,36 @@ Estado: **completada — 2026-08-14**.
 
 Cumplido el 2026-08-14 tras confirmación expresa de la matriz completa en ambos iPhone.
 
+## Fase 2 — Cuentas, categorías y núcleo financiero
+
+Estado: **implementada localmente; pendiente de despliegue y aceptación externa — 2026-08-14**.
+
+### Alcance cerrado
+
+- Cuentas corriente, ahorro, inversión y efectivo con saldo inicial, inclusión en patrimonio/liquidez y archivado no destructivo.
+- Categorías separadas para ingresos y gastos, con catálogo inicial, creación/edición y archivado no destructivo.
+- Movimientos vinculados a cuenta/categoría; transferencia como un único registro con origen y destino; ajuste como variación firmada de una cuenta.
+- Motor puro y probado para saldo por cuenta, patrimonio y liquidez. Transferencias y ajustes no alteran ingresos/gastos.
+- Persistencia offline y sincronización incremental/idempotente de cuentas, categorías y movimientos, incluida migración compatible de IndexedDB y Sheets.
+- UI mínima de gestión y registro necesaria para validar el núcleo. La navegación definitiva, búsqueda, filtros y detalle avanzado quedan en Fase 3.
+
+### Criterio de salida
+
+- Lint, typecheck, tests, build y CI verdes.
+- Apps Script actualizado y migración idempotente ejecutada.
+- En ambos iPhone: crear/editar/archivar cuentas y categorías, registrar ingreso/gasto/transferencia/ajuste offline y online, y comprobar convergencia, saldos y patrimonio sin doble contabilización.
+
+### Validación automatizada
+
+- `npm run lint`: verde, sin warnings.
+- `npm run typecheck`: verde.
+- `npm test`: 9 archivos y 42 tests verdes.
+- `npm run build`: verde; app shell y service worker generados con 7 recursos precacheados.
+- Pendiente: CI/Pages, migración `migratePhase2`, Web App `2.0.0-phase2` y matriz `IPHONE_PHASE2.md`.
+
 ## Fases siguientes — no iniciadas
 
-- **Fase 2:** cuentas, categorías y núcleo financiero; saldos, patrimonio, transferencias de un solo objeto y ajustes.
-- **Fase 3:** movimientos completos, filtros, búsqueda y cinco áreas principales.
+- **Fase 3:** movimientos completos, filtros, búsqueda, agrupación y cinco áreas principales.
 - **Fase 4:** reglas recurrentes y ocurrencias idempotentes.
 - **Fase 5:** presupuestos y plan mensual.
 - **Fase 6:** objetivos virtuales y patrimonio.
@@ -107,4 +133,4 @@ Las mutaciones se ordenan con Script Lock; gana la última aceptada. Tombstones 
 
 ### 2026-08-14 — Validación de transporte
 
-Se usa POST simple `text/plain`. JSONP y `no-cors` quedan prohibidos. La prueba real en Windows confirmó que el navegador puede leer la respuesta redirigida de ContentService; queda pendiente repetir la validación y la matriz funcional completa en Safari sobre ambos iPhone.
+Se usa POST simple `text/plain`. JSONP y `no-cors` quedan prohibidos. Windows y Safari en ambos iPhone confirmaron que el navegador puede leer la respuesta redirigida de ContentService.

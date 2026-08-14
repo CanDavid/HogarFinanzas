@@ -34,8 +34,10 @@ class FakeSpreadsheet {
   sheets = new Map<string, FakeSheet>()
   constructor() {
     this.add('Meta', ['key', 'value'])
+    this.add('Accounts', ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'name', 'type', 'initialBalanceCents', 'includeInNetWorth', 'includeInLiquidity', 'archivedAt'])
+    this.add('Categories', ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'name', 'kind', 'icon', 'archivedAt'])
     this.add('Transactions', ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'kind', 'amountCents', 'concept', 'date'])
-    this.add('SyncOperations', ['operationId', 'processedAt', 'resultJson'])
+    this.add('SyncOperations', ['operationId', 'processedAt', 'resultJson', 'entityType'])
   }
   add(name: string, headers: string[]) { this.sheets.set(name, new FakeSheet(name, headers)) }
   getSheetByName(name: string) { return this.sheets.get(name) }
@@ -98,7 +100,7 @@ describe('Apps Script sync core with Sheets adapter', () => {
     const transactionSheet = spreadsheet.getSheetByName('Transactions')
     if (!transactionSheet) throw new Error('Missing Transactions sheet')
     transactionSheet.rows[1][10] = new Date('2026-08-13T22:00:00.000Z')
-    expect(script.pullChanges_(0, spreadsheet).changes[0].date).toBe('2026-08-14')
+    expect(script.pullChanges_(0, spreadsheet).changes[0].record.date).toBe('2026-08-14')
   })
 
   it('deterministically keeps the last accepted concurrent edit', () => {
@@ -115,6 +117,31 @@ describe('Apps Script sync core with Sheets adapter', () => {
     script.applyOperation_(spreadsheet, operation('op-create', 'create'), 'david')
     script.applyOperation_(spreadsheet, operation('op-delete', 'delete'), 'esther')
     expect(() => script.applyOperation_(spreadsheet, operation('op-stale', 'update', 'Resucitado'), 'david')).toThrow('no puede restaurarse')
-    expect(script.pullChanges_(0, spreadsheet).changes[0].deletedAt).toBeTruthy()
+    expect(script.pullChanges_(0, spreadsheet).changes[0].record.deletedAt).toBeTruthy()
+  })
+
+  it('synchronizes accounts and categories as typed entities', () => {
+    const script = loadScript(); const spreadsheet = new FakeSpreadsheet(); const now = '2026-08-14T10:00:00.000Z'
+    const account = { id: 'account-1', createdAt: now, updatedAt: now, deletedAt: null, createdBy: 'david', version: 0, changeSequence: 0,
+      name: 'Principal', type: 'checking', initialBalanceCents: 10000, includeInNetWorth: true, includeInLiquidity: true, archivedAt: null }
+    const category = { id: 'category-1', createdAt: now, updatedAt: now, deletedAt: null, createdBy: 'david', version: 0, changeSequence: 0,
+      name: 'Comida', kind: 'expense', icon: '●', archivedAt: null }
+    script.applyOperation_(spreadsheet, { operationId: 'account-op', entityType: 'account', kind: 'create', recordId: account.id, payload: account }, 'david')
+    script.applyOperation_(spreadsheet, { operationId: 'category-op', entityType: 'category', kind: 'create', recordId: category.id, payload: category }, 'david')
+    const changes = script.pullChanges_(0, spreadsheet).changes
+    expect(changes.map((item) => item.entityType)).toEqual(['account', 'category'])
+  })
+
+  it('accepts one transfer record only when both accounts exist', () => {
+    const script = loadScript(); const spreadsheet = new FakeSpreadsheet(); const now = '2026-08-14T10:00:00.000Z'
+    for (const id of ['account-1', 'account-2']) {
+      const account = { id, createdAt: now, updatedAt: now, deletedAt: null, createdBy: 'david', version: 0, changeSequence: 0,
+        name: id, type: 'checking', initialBalanceCents: 0, includeInNetWorth: true, includeInLiquidity: true, archivedAt: null }
+      script.applyOperation_(spreadsheet, { operationId: `op-${id}`, entityType: 'account', kind: 'create', recordId: id, payload: account }, 'david')
+    }
+    const transfer = { ...payload('A ahorro'), kind: 'transfer', accountId: null, categoryId: null, sourceAccountId: 'account-1', destinationAccountId: 'account-2' }
+    const result = script.applyOperation_(spreadsheet, { operationId: 'transfer-op', entityType: 'transaction', kind: 'create', recordId: transfer.id, payload: transfer }, 'david')
+    expect(result.record.kind).toBe('transfer')
+    expect(spreadsheet.getSheetByName('Transactions')?.rows).toHaveLength(2)
   })
 })

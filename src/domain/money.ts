@@ -1,4 +1,5 @@
 const CENTS_PATTERN = /^(\d+)(?:[,.](\d{0,2}))?$/
+const SIGNED_CENTS_PATTERN = /^([+-]?)(\d+)(?:[,.](\d{0,2}))?$/
 
 export function parseEuroToCents(value: string): number {
   const normalized = value.trim().replace(/\s/g, '')
@@ -10,6 +11,16 @@ export function parseEuroToCents(value: string): number {
   const cents = euros * 100 + Number(fraction)
   assertMoneyCents(cents)
   if (cents <= 0) throw new Error('El importe debe ser mayor que cero.')
+  return cents
+}
+
+export function parseSignedEuroToCents(value: string): number {
+  const normalized = value.trim().replace(/\s/g, '')
+  const match = SIGNED_CENTS_PATTERN.exec(normalized)
+  if (!match) throw new Error('Introduce un importe válido con hasta dos decimales.')
+  const absoluteCents = Number(match[2]) * 100 + Number((match[3] ?? '').padEnd(2, '0'))
+  const cents = match[1] === '-' ? -absoluteCents : absoluteCents
+  assertMoneyCents(cents)
   return cents
 }
 

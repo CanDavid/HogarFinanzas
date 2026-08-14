@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { Session, SyncOperation, SyncRepository, Transaction } from '../domain/types'
+import type { Session, SyncChange, SyncOperation, SyncRepository } from '../domain/types'
 import { SyncEngine } from './syncEngine'
 
 class RepositoryStub implements SyncRepository {
@@ -7,17 +7,25 @@ class RepositoryStub implements SyncRepository {
   cursor = 3
   operations: SyncOperation[] = []
   applied = false
-  merged: Transaction[] = []
+  merged: SyncChange[] = []
   transportError = ''
   listTransactions = async () => []
+  listAccounts = async () => []
+  listCategories = async () => []
   createTransaction = async () => { throw new Error('unused') }
   updateTransaction = async () => { throw new Error('unused') }
   deleteTransaction = async () => undefined
+  createAccount = async () => { throw new Error('unused') }
+  updateAccount = async () => { throw new Error('unused') }
+  archiveAccount = async () => undefined
+  createCategory = async () => { throw new Error('unused') }
+  updateCategory = async () => { throw new Error('unused') }
+  archiveCategory = async () => undefined
   pendingOperations = async () => this.operations
   failedOperations = async () => []
   markTransportFailure = async (message: string) => { this.transportError = message }
   applyOperationResults = async () => { this.applied = true }
-  mergeServerChanges = async (changes: Transaction[]) => { this.merged = changes }
+  mergeServerChanges = async (changes: SyncChange[]) => { this.merged = changes }
   getCursor = async () => this.cursor
   setCursor = async (cursor: number) => { this.cursor = cursor }
   getSession = async () => this.session

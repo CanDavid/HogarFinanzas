@@ -1,25 +1,26 @@
 /* global ContentService, LockService, PropertiesService, Session, SpreadsheetApp, Utilities */
 
-const APP_VERSION = '1.0.1-phase1';
+const APP_VERSION = '2.0.0-phase2';
 const SESSION_DAYS = 30;
 const ALLOWED_USERS = ['david', 'esther'];
 const SHEETS = {
   Meta: ['key', 'value'],
   Users: ['id', 'displayName', 'active'],
-  Accounts: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'],
-  Categories: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'],
-  Transactions: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'kind', 'amountCents', 'concept', 'date'],
+  Accounts: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'name', 'type', 'initialBalanceCents', 'includeInNetWorth', 'includeInLiquidity', 'archivedAt'],
+  Categories: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'name', 'kind', 'icon', 'archivedAt'],
+  Transactions: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'kind', 'amountCents', 'concept', 'date', 'accountId', 'categoryId', 'sourceAccountId', 'destinationAccountId'],
   RecurringRules: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'],
   Budgets: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'],
   Goals: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'],
   GoalAllocations: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'],
   MonthlyClosures: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'],
-  SyncOperations: ['operationId', 'processedAt', 'resultJson'],
+  SyncOperations: ['operationId', 'processedAt', 'resultJson', 'entityType'],
 };
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Hogar Finanzas')
     .addItem('Inicializar o cambiar clave', 'initializeFromPrompt')
+    .addItem('Migrar a Fase 2', 'migratePhase2')
     .addToUi();
 }
 
@@ -59,8 +60,9 @@ function initializeProject(householdKey) {
   if (!spreadsheet) throw new Error('Vincula este script a una hoja de cálculo.');
   Object.keys(SHEETS).forEach(function (name) { ensureSheet_(spreadsheet, name, SHEETS[name]); });
   seedUsers_(spreadsheet);
-  setMeta_(spreadsheet, 'schemaVersion', '1');
+  setMeta_(spreadsheet, 'schemaVersion', '2');
   if (getMeta_(spreadsheet, 'changeSequence') === null) setMeta_(spreadsheet, 'changeSequence', '0');
+  seedCategories_(spreadsheet);
 
   const properties = PropertiesService.getScriptProperties();
   const salt = Utilities.getUuid() + Utilities.getUuid();
@@ -71,6 +73,17 @@ function initializeProject(householdKey) {
     TOKEN_SECRET: Utilities.getUuid() + Utilities.getUuid() + Utilities.getUuid(),
   });
   return { spreadsheetId: spreadsheet.getId(), sheets: Object.keys(SHEETS), users: ALLOWED_USERS };
+}
+
+function migratePhase2() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  if (!spreadsheet) throw new Error('Vincula este script a una hoja de cálculo.');
+  Object.keys(SHEETS).forEach(function (name) { ensureSheet_(spreadsheet, name, SHEETS[name]); });
+  if (getMeta_(spreadsheet, 'changeSequence') === null) setMeta_(spreadsheet, 'changeSequence', '0');
+  setMeta_(spreadsheet, 'schemaVersion', '2');
+  seedUsers_(spreadsheet);
+  seedCategories_(spreadsheet);
+  return { schemaVersion: 2, categories: readObjects_(spreadsheet.getSheetByName('Categories'), SHEETS.Categories).length };
 }
 
 function login_(request) {
@@ -111,64 +124,107 @@ function sync_(request) {
 }
 
 function applyOperation_(spreadsheet, operation, userId) {
-  validateOperation_(operation, userId);
+  const entityType = operation && operation.entityType ? operation.entityType : 'transaction';
+  validateOperation_(spreadsheet, operation, userId, entityType);
   const previous = findRowObject_(spreadsheet.getSheetByName('SyncOperations'), 'operationId', operation.operationId);
   if (previous) return JSON.parse(previous.value.resultJson);
 
-  const sheet = spreadsheet.getSheetByName('Transactions');
+  const sheetName = entitySheet_(entityType);
+  const sheet = spreadsheet.getSheetByName(sheetName);
   const found = findRowObject_(sheet, 'id', operation.recordId);
   let record;
   if (operation.kind === 'create') {
-    if (found) throw apiError_('record_exists', 'Ya existe un movimiento con ese identificador.');
-    record = serverRecord_(operation.payload, 1, nextSequence_(spreadsheet), userId, null);
-    appendObject_(sheet, SHEETS.Transactions, record);
+    if (found) throw apiError_('record_exists', 'Ya existe un registro con ese identificador.');
+    record = serverRecord_(entityType, operation.payload, 1, nextSequence_(spreadsheet), userId, null);
+    appendObject_(sheet, SHEETS[sheetName], record);
   } else if (!found) {
-    if (operation.kind !== 'delete') throw apiError_('record_missing', 'El movimiento ya no existe.');
-    record = serverRecord_(operation.payload, 1, nextSequence_(spreadsheet), userId, new Date().toISOString());
-    appendObject_(sheet, SHEETS.Transactions, record);
+    if (operation.kind !== 'delete') throw apiError_('record_missing', 'El registro ya no existe.');
+    record = serverRecord_(entityType, operation.payload, 1, nextSequence_(spreadsheet), userId, new Date().toISOString());
+    appendObject_(sheet, SHEETS[sheetName], record);
   } else {
-    const current = normalizeTransaction_(found.value);
-    if (current.deletedAt && operation.kind !== 'delete') throw apiError_('record_deleted', 'El movimiento fue eliminado y no puede restaurarse.');
+    const current = normalizeEntity_(entityType, found.value);
+    if (current.deletedAt && operation.kind !== 'delete') throw apiError_('record_deleted', 'El registro fue eliminado y no puede restaurarse.');
     if (current.deletedAt && operation.kind === 'delete') {
       record = current;
     } else {
       const deletedAt = operation.kind === 'delete' ? new Date().toISOString() : null;
-      record = serverRecord_(operation.payload, current.version + 1, nextSequence_(spreadsheet), current.createdBy, deletedAt);
-      writeObjectRow_(sheet, found.row, SHEETS.Transactions, record);
+      record = serverRecord_(entityType, operation.payload, current.version + 1, nextSequence_(spreadsheet), current.createdBy, deletedAt);
+      writeObjectRow_(sheet, found.row, SHEETS[sheetName], record);
     }
   }
-  const result = { operationId: operation.operationId, ok: true, record: record };
+  const result = { operationId: operation.operationId, ok: true, entityType: entityType, record: record };
   appendObject_(spreadsheet.getSheetByName('SyncOperations'), SHEETS.SyncOperations, {
     operationId: operation.operationId,
     processedAt: new Date().toISOString(),
     resultJson: JSON.stringify(result),
+    entityType: entityType,
   });
   return result;
 }
 
 function pullChanges_(cursor, existingSpreadsheet) {
   const spreadsheet = existingSpreadsheet || openSpreadsheet_();
-  const sheet = spreadsheet.getSheetByName('Transactions');
-  const rows = readObjects_(sheet, SHEETS.Transactions).map(normalizeTransaction_);
-  const changes = rows.filter(function (record) { return record.changeSequence > cursor; });
+  const changes = ['transaction', 'account', 'category'].reduce(function (all, entityType) {
+    const sheetName = entitySheet_(entityType);
+    const rows = readObjects_(spreadsheet.getSheetByName(sheetName), SHEETS[sheetName]).map(function (row) { return normalizeEntity_(entityType, row); });
+    return all.concat(rows.filter(function (record) { return record.changeSequence > cursor; }).map(function (record) { return { entityType: entityType, record: record }; }));
+  }, []).sort(function (left, right) { return left.record.changeSequence - right.record.changeSequence; });
   const current = Number(getMeta_(spreadsheet, 'changeSequence') || 0);
   return { changes: changes, cursor: current };
 }
 
-function validateOperation_(operation, userId) {
+function validateOperation_(spreadsheet, operation, userId, entityType) {
   if (!operation || typeof operation.operationId !== 'string' || !operation.operationId) throw apiError_('invalid_operation', 'Falta operationId.');
+  if (['transaction', 'account', 'category'].indexOf(entityType) === -1) throw apiError_('invalid_operation', 'Entidad inválida.');
   if (['create', 'update', 'delete'].indexOf(operation.kind) === -1) throw apiError_('invalid_operation', 'Tipo de operación inválido.');
-  if (operation.recordId !== (operation.payload && operation.payload.id)) throw apiError_('invalid_record', 'El identificador del movimiento no coincide.');
+  if (operation.recordId !== (operation.payload && operation.payload.id)) throw apiError_('invalid_record', 'El identificador no coincide.');
   const record = operation.payload;
-  if (!record || ['income', 'expense', 'transfer'].indexOf(record.kind) === -1) throw apiError_('invalid_record', 'Tipo de movimiento inválido.');
-  if (!Number.isSafeInteger(record.amountCents) || record.amountCents <= 0) throw apiError_('invalid_amount', 'El importe debe usar céntimos enteros positivos.');
-  if (typeof record.concept !== 'string' || !record.concept.trim() || record.concept.length > 120) throw apiError_('invalid_concept', 'Concepto no válido.');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(record.date)) throw apiError_('invalid_date', 'Fecha no válida.');
   if (operation.kind === 'create' && record.createdBy !== userId) throw apiError_('invalid_owner', 'El creador no coincide con la sesión.');
+  if (entityType === 'transaction') validateTransaction_(spreadsheet, record, !operation.entityType || !Object.prototype.hasOwnProperty.call(record, 'accountId'));
+  else if (entityType === 'account') validateAccount_(record);
+  else validateCategory_(record);
 }
 
-function serverRecord_(payload, version, sequence, createdBy, deletedAt) {
-  return {
+function validateTransaction_(spreadsheet, record, legacy) {
+  if (!record || ['income', 'expense', 'transfer', 'adjustment'].indexOf(record.kind) === -1) throw apiError_('invalid_record', 'Tipo de movimiento inválido.');
+  if (!Number.isSafeInteger(record.amountCents) || (record.kind === 'adjustment' ? record.amountCents === 0 : record.amountCents <= 0)) throw apiError_('invalid_amount', 'Importe no válido.');
+  if (typeof record.concept !== 'string' || !record.concept.trim() || record.concept.length > 120) throw apiError_('invalid_concept', 'Concepto no válido.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(record.date)) throw apiError_('invalid_date', 'Fecha no válida.');
+  if (legacy) return;
+  if (record.kind === 'transfer') {
+    if (!record.sourceAccountId || !record.destinationAccountId || record.sourceAccountId === record.destinationAccountId) throw apiError_('invalid_accounts', 'Cuentas de transferencia no válidas.');
+    requireActive_(spreadsheet, 'Accounts', record.sourceAccountId);
+    requireActive_(spreadsheet, 'Accounts', record.destinationAccountId);
+  } else {
+    if (!record.accountId) throw apiError_('invalid_account', 'Cuenta obligatoria.');
+    requireActive_(spreadsheet, 'Accounts', record.accountId);
+  }
+  if (record.kind === 'income' || record.kind === 'expense') {
+    if (!record.categoryId) throw apiError_('invalid_category', 'Categoría obligatoria.');
+    const category = requireActive_(spreadsheet, 'Categories', record.categoryId);
+    if (String(category.kind) !== record.kind) throw apiError_('invalid_category', 'La categoría no coincide con el movimiento.');
+  }
+}
+
+function validateAccount_(record) {
+  if (!record || typeof record.name !== 'string' || !record.name.trim() || record.name.length > 80) throw apiError_('invalid_account', 'Nombre de cuenta no válido.');
+  if (['checking', 'savings', 'investment', 'cash'].indexOf(record.type) === -1) throw apiError_('invalid_account', 'Tipo de cuenta no válido.');
+  if (!Number.isSafeInteger(record.initialBalanceCents)) throw apiError_('invalid_amount', 'Saldo inicial no válido.');
+}
+
+function validateCategory_(record) {
+  if (!record || typeof record.name !== 'string' || !record.name.trim() || record.name.length > 60) throw apiError_('invalid_category', 'Nombre de categoría no válido.');
+  if (['income', 'expense'].indexOf(record.kind) === -1 || typeof record.icon !== 'string' || !record.icon.trim()) throw apiError_('invalid_category', 'Categoría no válida.');
+}
+
+function requireActive_(spreadsheet, sheetName, id) {
+  const found = findRowObject_(spreadsheet.getSheetByName(sheetName), 'id', id);
+  if (!found || found.value.deletedAt || found.value.archivedAt) throw apiError_('inactive_reference', 'La cuenta o categoría no está disponible.');
+  return found.value;
+}
+
+function serverRecord_(entityType, payload, version, sequence, createdBy, deletedAt) {
+  const common = {
     id: payload.id,
     createdAt: payload.createdAt,
     updatedAt: new Date().toISOString(),
@@ -176,17 +232,25 @@ function serverRecord_(payload, version, sequence, createdBy, deletedAt) {
     createdBy: createdBy,
     version: version,
     changeSequence: sequence,
-    kind: payload.kind,
-    amountCents: payload.amountCents,
-    concept: payload.concept.trim(),
-    date: payload.date,
   };
+  if (entityType === 'transaction') return Object.assign(common, {
+    kind: payload.kind, amountCents: payload.amountCents, concept: payload.concept.trim(), date: payload.date,
+    accountId: payload.accountId || '', categoryId: payload.categoryId || '', sourceAccountId: payload.sourceAccountId || '', destinationAccountId: payload.destinationAccountId || '',
+  });
+  if (entityType === 'account') return Object.assign(common, {
+    name: payload.name.trim(), type: payload.type, initialBalanceCents: payload.initialBalanceCents,
+    includeInNetWorth: Boolean(payload.includeInNetWorth), includeInLiquidity: Boolean(payload.includeInLiquidity), archivedAt: payload.archivedAt || '',
+  });
+  return Object.assign(common, { name: payload.name.trim(), kind: payload.kind, icon: payload.icon.trim(), archivedAt: payload.archivedAt || '' });
 }
 
 function initializeSheetHeaders_(sheet, headers) {
   if (sheet.getLastRow() === 0) sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   const actual = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
-  if (actual.join('|') !== headers.join('|')) throw new Error('Cabeceras incompatibles en la hoja ' + sheet.getName());
+  headers.forEach(function (header, index) {
+    if (actual[index] && actual[index] !== header) throw new Error('Cabeceras incompatibles en la hoja ' + sheet.getName());
+  });
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   sheet.setFrozenRows(1);
 }
 
@@ -200,6 +264,24 @@ function seedUsers_(spreadsheet) {
   if (sheet.getLastRow() <= 1) {
     sheet.getRange(2, 1, 2, 3).setValues([['david', 'David', true], ['esther', 'Esther', true]]);
   }
+}
+
+function seedCategories_(spreadsheet) {
+  const defaults = {
+    expense: ['Vivienda', 'Alimentación', 'Restaurantes', 'Transporte', 'Coche', 'Niños', 'Salud', 'Educación', 'Ocio', 'Viajes', 'Suscripciones', 'Seguros', 'Impuestos', 'Compras', 'Mascotas', 'Regalos', 'Otros'],
+    income: ['Nómina', 'Empresa', 'Extraordinarios', 'Reembolsos', 'Otros ingresos'],
+  };
+  const sheet = spreadsheet.getSheetByName('Categories');
+  const existing = readObjects_(sheet, SHEETS.Categories);
+  Object.keys(defaults).forEach(function (kind) {
+    defaults[kind].forEach(function (name) {
+      const found = existing.some(function (item) { return String(item.kind) === kind && String(item.name).toLowerCase() === name.toLowerCase(); });
+      if (found) return;
+      const now = new Date().toISOString();
+      appendObject_(sheet, SHEETS.Categories, { id: Utilities.getUuid(), createdAt: now, updatedAt: now, deletedAt: '', createdBy: 'david',
+        version: 1, changeSequence: nextSequence_(spreadsheet), name: name, kind: kind, icon: '●', archivedAt: '' });
+    });
+  });
 }
 
 function readObjects_(sheet, headers) {
@@ -236,8 +318,31 @@ function normalizeTransaction_(row) {
     deletedAt: row.deletedAt ? normalizeTimestampCell_(row.deletedAt) : null, createdBy: String(row.createdBy),
     version: Number(row.version), changeSequence: Number(row.changeSequence), kind: String(row.kind),
     amountCents: Number(row.amountCents), concept: String(row.concept), date: normalizeDateCell_(row.date),
+    accountId: row.accountId ? String(row.accountId) : null, categoryId: row.categoryId ? String(row.categoryId) : null,
+    sourceAccountId: row.sourceAccountId ? String(row.sourceAccountId) : null, destinationAccountId: row.destinationAccountId ? String(row.destinationAccountId) : null,
   };
 }
+
+function normalizeAccount_(row) {
+  return {
+    id: String(row.id), createdAt: normalizeTimestampCell_(row.createdAt), updatedAt: normalizeTimestampCell_(row.updatedAt),
+    deletedAt: row.deletedAt ? normalizeTimestampCell_(row.deletedAt) : null, createdBy: String(row.createdBy), version: Number(row.version), changeSequence: Number(row.changeSequence),
+    name: String(row.name), type: String(row.type), initialBalanceCents: Number(row.initialBalanceCents), includeInNetWorth: toBoolean_(row.includeInNetWorth),
+    includeInLiquidity: toBoolean_(row.includeInLiquidity), archivedAt: row.archivedAt ? normalizeTimestampCell_(row.archivedAt) : null,
+  };
+}
+
+function normalizeCategory_(row) {
+  return {
+    id: String(row.id), createdAt: normalizeTimestampCell_(row.createdAt), updatedAt: normalizeTimestampCell_(row.updatedAt),
+    deletedAt: row.deletedAt ? normalizeTimestampCell_(row.deletedAt) : null, createdBy: String(row.createdBy), version: Number(row.version), changeSequence: Number(row.changeSequence),
+    name: String(row.name), kind: String(row.kind), icon: String(row.icon), archivedAt: row.archivedAt ? normalizeTimestampCell_(row.archivedAt) : null,
+  };
+}
+
+function normalizeEntity_(entityType, row) { return entityType === 'transaction' ? normalizeTransaction_(row) : entityType === 'account' ? normalizeAccount_(row) : normalizeCategory_(row); }
+function entitySheet_(entityType) { return entityType === 'transaction' ? 'Transactions' : entityType === 'account' ? 'Accounts' : 'Categories'; }
+function toBoolean_(value) { return value === true || String(value).toLowerCase() === 'true'; }
 
 function normalizeTimestampCell_(value) {
   const parsed = new Date(value);

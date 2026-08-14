@@ -1,4 +1,4 @@
-# Configuración de Google — Fase 1
+# Configuración de Google — Fases 1 y 2
 
 Estas acciones requieren la cuenta Google que será propietaria de la hoja. No publiques la clave doméstica, tokens ni contenido de la hoja.
 
@@ -39,6 +39,16 @@ Se puede pegar la URL desde **Configuración del servidor** en la pantalla de lo
 ## 5. Actualizaciones
 
 Al cambiar `Code.gs`, crea una versión nueva de la implementación y vuelve a desplegarla manteniendo el mismo deployment. Confirma primero salud y login en Windows; después prueba Safari.
+
+### Migración a Fase 2
+
+1. Publica la PWA nueva y deja que ambos iPhone actualicen el app shell antes de crear datos nuevos.
+2. Sustituye `Code.gs`, guarda y ejecuta **Hogar Finanzas → Migrar a Fase 2** desde la hoja.
+3. Autoriza si Google lo solicita. La migración amplía cabeceras, conserva filas y crea las categorías iniciales sin duplicarlas.
+4. Crea una versión nueva de la implementación manteniendo la misma URL `/exec`.
+5. Comprueba que el health check devuelve `2.0.0-phase2`.
+
+No vuelvas a ejecutar **Inicializar o cambiar clave** para esta migración: no es necesario renovar la clave ni las sesiones.
 
 ## Diagnóstico seguro
 
