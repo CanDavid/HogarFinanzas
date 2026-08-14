@@ -1,4 +1,4 @@
-# Configuración de Google — Fases 1 y 2
+# Configuración de Google — Fases 1 a 3
 
 Estas acciones requieren la cuenta Google que será propietaria de la hoja. No publiques la clave doméstica, tokens ni contenido de la hoja.
 
@@ -49,6 +49,17 @@ Al cambiar `Code.gs`, crea una versión nueva de la implementación y vuelve a d
 5. Comprueba que el health check devuelve `2.0.0-phase2`.
 
 No vuelvas a ejecutar **Inicializar o cambiar clave** para esta migración: no es necesario renovar la clave ni las sesiones.
+
+### Migración a Fase 3
+
+1. Sustituye `Code.gs` por la versión de Fase 3 y guarda el proyecto.
+2. Recarga la hoja y ejecuta **Hogar Finanzas → Migrar a Fase 3**.
+3. Comprueba que devuelve `schemaVersion: 3`; la migración añade `note` al final de `Transactions` sin alterar las filas existentes.
+4. Crea una versión nueva de la implementación manteniendo la misma URL `/exec`.
+5. Abre la URL y confirma que el health check devuelve `3.0.0-phase3`.
+6. Después actualiza/reabre la PWA en ambos iPhone. No guardes notas nuevas antes de confirmar la versión del Web App, porque el backend anterior no conserva ese campo.
+
+No ejecutes **Inicializar o cambiar clave**: `migratePhase3` conserva clave, sesiones y datos.
 
 ## Diagnóstico seguro
 

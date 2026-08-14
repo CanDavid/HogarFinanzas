@@ -2,16 +2,18 @@ import { useState, type FormEvent } from 'react'
 import { formatEuro, parseSignedEuroToCents } from '../domain/money'
 import type { Account, AccountInput, AccountType } from '../domain/types'
 
-export function AccountManager({ accounts, balances, onCreate, onUpdate, onArchive, onRestore }: {
+export function AccountManager({ accounts, balances, onCreate, onUpdate, onArchive, onRestore, onAdjustBalance }: {
   accounts: Account[]; balances: ReadonlyMap<string, number>
   onCreate(input: AccountInput): Promise<void>; onUpdate(id: string, input: AccountInput): Promise<void>; onArchive(id: string): Promise<void>; onRestore(id: string): Promise<void>
+  onAdjustBalance?(id: string): void
 }) {
   const [editing, setEditing] = useState<Account | null>(null)
   return <section className="management"><div className="section-title"><h2>Cuentas</h2><span>{accounts.filter((item) => !item.archivedAt).length}</span></div>
     <AccountForm key={editing?.id ?? 'new'} account={editing} onSave={async (input) => { if (editing) await onUpdate(editing.id, input); else await onCreate(input); setEditing(null) }} onCancel={editing ? () => setEditing(null) : undefined} />
     <ul>{accounts.map((account) => <li key={account.id} className={account.archivedAt ? 'archived' : ''}>
       <button className="management-main" onClick={() => setEditing(account)}><strong>{account.name}</strong><small>{accountTypeLabel(account.type)} · {formatEuro(balances.get(account.id) ?? account.initialBalanceCents)}</small></button>
-      <button className={account.archivedAt ? 'restore' : 'delete'} onClick={() => void (account.archivedAt ? onRestore(account.id) : onArchive(account.id))}>{account.archivedAt ? 'Desarchivar' : 'Archivar'}</button>
+      <div className="management-actions">{!account.archivedAt && onAdjustBalance && <button className="text-action" onClick={() => onAdjustBalance(account.id)}>Ajustar saldo</button>}
+        <button className={account.archivedAt ? 'restore' : 'delete'} onClick={() => void (account.archivedAt ? onRestore(account.id) : onArchive(account.id))}>{account.archivedAt ? 'Desarchivar' : 'Archivar'}</button></div>
     </li>)}</ul></section>
 }
 

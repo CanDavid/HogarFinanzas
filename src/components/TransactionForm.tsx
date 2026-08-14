@@ -1,22 +1,26 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { localDateOnly } from '../domain/dates'
 import { formatEuro, parseEuroToCents, parseSignedEuroToCents } from '../domain/money'
 import type { Account, Category, Transaction, TransactionInput, TransactionKind } from '../domain/types'
 
 interface Props {
   transaction?: Transaction
+  initialKind?: TransactionKind
+  initialAccountId?: string
   accounts: Account[]
   categories: Category[]
   onSave(input: TransactionInput): Promise<void>
   onCancel?(): void
 }
 
-export function TransactionForm({ transaction, accounts, categories, onSave, onCancel }: Props) {
+export function TransactionForm({ transaction, initialKind, initialAccountId, accounts, categories, onSave, onCancel }: Props) {
   const activeAccounts = useMemo(() => accounts.filter((item) => !item.archivedAt), [accounts])
-  const [kind, setKind] = useState<TransactionKind>(transaction?.kind ?? 'expense')
+  const [kind, setKind] = useState<TransactionKind>(transaction?.kind ?? initialKind ?? 'expense')
   const [amount, setAmount] = useState(transaction ? (transaction.amountCents / 100).toFixed(2) : '')
   const [concept, setConcept] = useState(transaction?.concept ?? '')
-  const [date, setDate] = useState(transaction?.date ?? today())
-  const [accountId, setAccountId] = useState(transaction?.accountId ?? activeAccounts[0]?.id ?? '')
+  const [note, setNote] = useState(transaction?.note ?? '')
+  const [date, setDate] = useState(transaction?.date ?? localDateOnly())
+  const [accountId, setAccountId] = useState(transaction?.accountId ?? initialAccountId ?? activeAccounts[0]?.id ?? '')
   const [categoryId, setCategoryId] = useState(transaction?.categoryId ?? '')
   const [sourceAccountId, setSourceAccountId] = useState(transaction?.sourceAccountId ?? '')
   const [destinationAccountId, setDestinationAccountId] = useState(transaction?.destinationAccountId ?? '')
@@ -26,7 +30,7 @@ export function TransactionForm({ transaction, accounts, categories, onSave, onC
 
   useEffect(() => {
     if (!transaction) return
-    setKind(transaction.kind); setAmount((transaction.amountCents / 100).toFixed(2)); setConcept(transaction.concept)
+    setKind(transaction.kind); setAmount((transaction.amountCents / 100).toFixed(2)); setConcept(transaction.concept); setNote(transaction.note)
     setDate(transaction.date); setAccountId(transaction.accountId ?? ''); setCategoryId(transaction.categoryId ?? '')
     setSourceAccountId(transaction.sourceAccountId ?? ''); setDestinationAccountId(transaction.destinationAccountId ?? '')
   }, [transaction])
@@ -38,12 +42,12 @@ export function TransactionForm({ transaction, accounts, categories, onSave, onC
   async function submit(event: FormEvent) {
     event.preventDefault(); setError(''); setSaving(true)
     try {
-      await onSave({ kind, amountCents: kind === 'adjustment' ? parseSignedEuroToCents(amount) : parseEuroToCents(amount), concept: concept.trim(), date,
+      await onSave({ kind, amountCents: kind === 'adjustment' ? parseSignedEuroToCents(amount) : parseEuroToCents(amount), concept: concept.trim(), note: note.trim(), date,
         accountId: kind === 'transfer' ? null : accountId || null,
         categoryId: kind === 'income' || kind === 'expense' ? categoryId || null : null,
         sourceAccountId: kind === 'transfer' ? sourceAccountId || null : null,
         destinationAccountId: kind === 'transfer' ? destinationAccountId || null : null })
-      if (!transaction) { setAmount(''); setConcept('') }
+      if (!transaction) { setAmount(''); setConcept(''); setNote('') }
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo guardar el movimiento.') }
     finally { setSaving(false) }
   }
@@ -51,10 +55,10 @@ export function TransactionForm({ transaction, accounts, categories, onSave, onC
   if (activeAccounts.length === 0) return <p className="empty">Crea una cuenta antes de registrar movimientos.</p>
 
   return <form className="movement-form" onSubmit={submit} aria-label={transaction ? 'Editar movimiento' : 'Añadir movimiento'}>
-    <div className="segmented four" role="group" aria-label="Tipo de movimiento">
-      {([['expense', 'Gasto'], ['income', 'Ingreso'], ['transfer', 'Transferencia'], ['adjustment', 'Ajuste']] as const)
+    {kind === 'adjustment' ? <p className="form-context">Ajuste manual de saldo</p> : <div className="segmented movement-kinds" role="group" aria-label="Tipo de movimiento">
+      {([['expense', 'Gasto'], ['income', 'Ingreso'], ['transfer', 'Transferencia']] as const)
         .map(([value, label]) => <button key={value} type="button" aria-pressed={kind === value} onClick={() => setKind(value)}>{label}</button>)}
-    </div>
+    </div>}
     <label htmlFor="movement-amount">Importe</label>
     <div className="amount-field"><input id="movement-amount" inputMode="decimal" autoComplete="off" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder={kind === 'adjustment' ? '−50,00 o 50,00' : '0,00'} required /><span>€</span></div>
     <label htmlFor="movement-concept">Concepto<input id="movement-concept" value={concept} onChange={(event) => setConcept(event.target.value)} maxLength={120} required placeholder="Compra, nómina…" /></label>
@@ -66,6 +70,7 @@ export function TransactionForm({ transaction, accounts, categories, onSave, onC
       <option value="">Selecciona…</option>{matchingCategories.map((item) => <option key={item.id} value={item.id}>{item.icon} {item.name}</option>)}
     </select></label>}
     <label htmlFor="movement-date">Fecha<input id="movement-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} required /></label>
+    <details className="optional-fields" open={Boolean(note)}><summary>Nota opcional</summary><label htmlFor="movement-note">Nota<textarea id="movement-note" value={note} onChange={(event) => setNote(event.target.value)} maxLength={500} rows={3} placeholder="Información adicional…" /></label></details>
     {error && <p className="error" role="alert">{error}</p>}
     <div className="form-actions">{onCancel && <button type="button" className="secondary" onClick={onCancel}>Cancelar</button>}
       <button type="submit" disabled={saving}>{saving ? 'Guardando…' : transaction ? `Guardar ${formatEuro(transaction.amountCents)}` : 'Guardar movimiento'}</button></div>
@@ -76,5 +81,3 @@ function Select({ label, value, onChange, accounts }: { label: string; value: st
   return <label>{label}<select value={value} onChange={(event) => onChange(event.target.value)} required><option value="">Selecciona…</option>
     {accounts.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
 }
-
-function today(): string { return new Date().toISOString().slice(0, 10) }

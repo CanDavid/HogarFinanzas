@@ -198,6 +198,7 @@ function newRecord<T extends SyncEntity>(values: Omit<T, keyof import('../domain
 
 function normalizeTransaction(transaction: Transaction): Transaction {
   return { ...transaction, date: normalizeDateOnly(transaction.date) ?? transaction.date,
+    note: typeof transaction.note === 'string' ? transaction.note : '',
     accountId: transaction.accountId ?? null, categoryId: transaction.categoryId ?? null,
     sourceAccountId: transaction.sourceAccountId ?? null, destinationAccountId: transaction.destinationAccountId ?? null }
 }
@@ -230,6 +231,7 @@ function validateTransactionInput(input: TransactionInput): void {
   assertMoneyCents(input.amountCents)
   if (input.kind === 'adjustment' ? input.amountCents === 0 : input.amountCents <= 0) throw new Error('El importe no es válido.')
   if (!input.concept.trim()) throw new Error('El concepto es obligatorio.')
+  if (typeof input.note !== 'string' || input.note.length > 500) throw new Error('La nota no es válida.')
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) throw new Error('La fecha no es válida.')
   if (input.kind === 'transfer') {
     if (!input.sourceAccountId || !input.destinationAccountId) throw new Error('Selecciona cuenta origen y destino.')

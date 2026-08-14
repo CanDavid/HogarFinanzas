@@ -4,7 +4,7 @@ import type { Account, Transaction, TransactionKind } from './types'
 
 function movement(kind: TransactionKind, amountCents: number): Transaction {
   return { id: crypto.randomUUID(), createdAt: '', updatedAt: '', deletedAt: null, createdBy: 'david', version: 1, changeSequence: 1,
-    kind, amountCents, concept: kind, date: '2026-08-14', accountId: 'a', categoryId: kind === 'income' || kind === 'expense' ? 'c' : null,
+    kind, amountCents, concept: kind, note: '', date: '2026-08-14', accountId: 'a', categoryId: kind === 'income' || kind === 'expense' ? 'c' : null,
     sourceAccountId: kind === 'transfer' ? 'a' : null, destinationAccountId: kind === 'transfer' ? 'b' : null }
 }
 

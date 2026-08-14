@@ -35,6 +35,7 @@ export interface Transaction extends SyncableRecord {
   kind: TransactionKind
   amountCents: number
   concept: string
+  note: string
   date: string
   accountId: string | null
   categoryId: string | null
@@ -77,6 +78,7 @@ export interface TransactionInput {
   kind: TransactionKind
   amountCents: number
   concept: string
+  note: string
   date: string
   accountId: string | null
   categoryId: string | null

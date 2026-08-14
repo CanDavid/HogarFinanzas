@@ -22,7 +22,7 @@ class FakeRange {
 
 class FakeSheet {
   rows: unknown[][]
-  constructor(private name: string, headers: string[]) { this.rows = [headers] }
+  constructor(private name: string, headers: string[]) { this.rows = headers.length ? [headers] : [] }
   getName() { return this.name }
   getLastRow() { return this.rows.length }
   getRange(row: number, column: number, rows = 1, columns = 1) { return new FakeRange(this, row, column, rows, columns) }
@@ -41,18 +41,22 @@ class FakeSpreadsheet {
   }
   add(name: string, headers: string[]) { this.sheets.set(name, new FakeSheet(name, headers)) }
   getSheetByName(name: string) { return this.sheets.get(name) }
+  insertSheet(name: string) { const sheet = new FakeSheet(name, []); this.sheets.set(name, sheet); return sheet }
 }
 
 interface ScriptContext {
   applyOperation_(spreadsheet: FakeSpreadsheet, operation: unknown, userId: string): { ok: boolean; record: Record<string, unknown> }
   pullChanges_(cursor: number, spreadsheet: FakeSpreadsheet): { changes: Record<string, unknown>[]; cursor: number }
+  migratePhase3(): { schemaVersion: number; transactionColumns: number }
 }
 
-function loadScript(): ScriptContext {
+function loadScript(activeSpreadsheet?: FakeSpreadsheet): ScriptContext {
   const context: Record<string, unknown> = {
     Date, JSON, Math, Number, String, Error,
+    SpreadsheetApp: { getActiveSpreadsheet: () => activeSpreadsheet },
     Session: { getScriptTimeZone: () => 'Europe/Madrid' },
     Utilities: {
+      getUuid: () => '22222222-2222-4222-8222-222222222222',
       formatDate(value: Date) {
         const parts = new Intl.DateTimeFormat('en', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit' })
           .formatToParts(value).reduce<Record<string, string>>((result, part) => ({ ...result, [part.type]: part.value }), {})
@@ -67,7 +71,7 @@ function loadScript(): ScriptContext {
 function payload(concept = 'Compra') {
   return {
     id: '11111111-1111-4111-8111-111111111111', createdAt: '2026-08-14T10:00:00.000Z', updatedAt: '2026-08-14T10:00:00.000Z',
-    deletedAt: null, createdBy: 'david', version: 0, changeSequence: 0, kind: 'expense', amountCents: 1234, concept, date: '2026-08-14',
+    deletedAt: null, createdBy: 'david', version: 0, changeSequence: 0, kind: 'expense', amountCents: 1234, concept, date: '2026-08-14', note: 'Detalle compartido',
   }
 }
 
@@ -76,6 +80,15 @@ function operation(operationId: string, kind: string, concept = 'Compra') {
 }
 
 describe('Apps Script sync core with Sheets adapter', () => {
+  it('migrates the transaction sheet to schema 3 without removing rows', () => {
+    const spreadsheet = new FakeSpreadsheet()
+    spreadsheet.getSheetByName('Transactions')?.rows.push(Object.values(payload()))
+    const result = loadScript(spreadsheet).migratePhase3()
+    expect(result).toEqual({ schemaVersion: 3, transactionColumns: 16 })
+    expect(spreadsheet.getSheetByName('Transactions')?.rows[0]).toContain('note')
+    expect(spreadsheet.getSheetByName('Transactions')?.rows).toHaveLength(2)
+  })
+
   it('replays the saved result without duplicating a retried create', () => {
     const script = loadScript(); const spreadsheet = new FakeSpreadsheet(); const create = operation('op-create', 'create')
     const first = script.applyOperation_(spreadsheet, create, 'david')
@@ -92,6 +105,13 @@ describe('Apps Script sync core with Sheets adapter', () => {
     expect(first.changes).toHaveLength(1)
     expect(first.cursor).toBe(1)
     expect(script.pullChanges_(first.cursor, spreadsheet).changes).toEqual([])
+  })
+
+  it('round-trips the optional note through Sheets', () => {
+    const script = loadScript(); const spreadsheet = new FakeSpreadsheet()
+    const result = script.applyOperation_(spreadsheet, operation('op-note', 'create'), 'david')
+    expect(result.record.note).toBe('Detalle compartido')
+    expect(script.pullChanges_(0, spreadsheet).changes[0].record.note).toBe('Detalle compartido')
   })
 
   it('normalizes dates coerced by Google Sheets before returning them', () => {

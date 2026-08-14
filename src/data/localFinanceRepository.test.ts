@@ -7,9 +7,10 @@ describe('LocalFinanceRepository', () => {
 
   it('persists an offline movement and queues a UUID operation', async () => {
     const first = new LocalFinanceRepository()
-    const created = await first.createTransaction(input('expense', 1234), 'david')
+    const created = await first.createTransaction({ ...input('expense', 1234), note: 'Guardado sin conexión' }, 'david')
     const reopened = new LocalFinanceRepository()
     expect(await reopened.listTransactions()).toEqual([created])
+    expect(created.note).toBe('Guardado sin conexión')
     const operations = await reopened.pendingOperations()
     expect(operations).toHaveLength(1)
     expect(operations[0]).toMatchObject({ kind: 'create', recordId: created.id, baseVersion: 0 })
@@ -38,7 +39,7 @@ describe('LocalFinanceRepository', () => {
     const remote = {
       id: crypto.randomUUID(), createdAt: '2026-08-14T10:00:00.000Z', updatedAt: '2026-08-14T10:00:00.000Z', deletedAt: null,
       createdBy: 'david' as const, version: 1, changeSequence: 1, kind: 'expense' as const, amountCents: 1234,
-      concept: 'Compra', date: 'Fri Aug 14 2026 00:00:00 GMT+0200 (Central European Summer Time)', accountId: 'account-1', categoryId: 'category-1', sourceAccountId: null, destinationAccountId: null,
+      concept: 'Compra', note: '', date: 'Fri Aug 14 2026 00:00:00 GMT+0200 (Central European Summer Time)', accountId: 'account-1', categoryId: 'category-1', sourceAccountId: null, destinationAccountId: null,
     }
     await repository.mergeServerChanges([{ entityType: 'transaction', record: remote }])
     expect((await repository.listTransactions())[0].date).toBe('2026-08-14')
@@ -60,5 +61,5 @@ describe('LocalFinanceRepository', () => {
 })
 
 function input(kind: 'income' | 'expense', amountCents: number) {
-  return { kind, amountCents, concept: kind === 'income' ? 'Ingreso' : 'Compra', date: '2026-08-14', accountId: 'account-1', categoryId: 'category-1', sourceAccountId: null, destinationAccountId: null }
+  return { kind, amountCents, concept: kind === 'income' ? 'Ingreso' : 'Compra', note: '', date: '2026-08-14', accountId: 'account-1', categoryId: 'category-1', sourceAccountId: null, destinationAccountId: null }
 }

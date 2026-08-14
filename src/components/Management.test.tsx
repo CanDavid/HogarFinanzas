@@ -29,4 +29,13 @@ describe('Phase 2 management', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Desarchivar' }))
     expect(restore).toHaveBeenCalledWith(account.id)
   })
+
+  it('opens balance adjustments from an active account', () => {
+    const adjust = vi.fn()
+    const account = { id: 'account-1', createdAt: '', updatedAt: '', deletedAt: null, createdBy: 'david' as const, version: 1, changeSequence: 1,
+      name: 'Principal', type: 'checking' as const, initialBalanceCents: 0, includeInNetWorth: true, includeInLiquidity: true, archivedAt: null }
+    render(<AccountManager accounts={[account]} balances={new Map()} onCreate={vi.fn()} onUpdate={vi.fn()} onArchive={vi.fn()} onRestore={vi.fn()} onAdjustBalance={adjust} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Ajustar saldo' }))
+    expect(adjust).toHaveBeenCalledWith(account.id)
+  })
 })

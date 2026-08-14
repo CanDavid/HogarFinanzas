@@ -70,7 +70,7 @@ Cumplido el 2026-08-14 tras confirmación expresa de la matriz completa en ambos
 
 ## Fase 2 — Cuentas, categorías y núcleo financiero
 
-Estado: **implementada y validada salvo aceptación en iPhone de la reactivación de archivados; hotfix publicado — 2026-08-15**.
+Estado: **completada — 2026-08-15**.
 
 ### Alcance cerrado
 
@@ -98,9 +98,44 @@ Estado: **implementada y validada salvo aceptación en iPhone de la reactivació
 - Antes del cierre solicitó reactivar cuentas/categorías archivadas; no estaba asignado a fases futuras y se incorporó como hotfix de esta fase.
 - `PWA CI #8` y `Deploy GitHub Pages #8` sobre `c780b56`: verdes. La página y el bundle publicados responden 200 y el bundle contiene la acción `Desarchivar`. Solo queda validar esta ampliación en ambos iPhone.
 
+### Cierre
+
+El usuario autorizó expresamente cerrar el checkpoint y avanzar a Fase 3 el 2026-08-15 tras el hotfix publicado de reactivación.
+
+## Fase 3 — Movimientos completos y navegación
+
+Estado: **implementada localmente; pendiente de despliegue Google, CI/Pages y aceptación externa — 2026-08-15**.
+
+### Alcance cerrado
+
+- Barra inferior accesible con Inicio, Movimientos, Plan, Objetivos y Análisis; las tres áreas de fases futuras muestran estados informativos sin datos ficticios.
+- Inicio con patrimonio, liquidez, resultado del mes, acceso rápido a movimientos, cuentas y categorías.
+- Alta, edición y eliminación lógica de gasto, ingreso y transferencia; nota opcional sincronizable. Ajustes de saldo iniciados desde una cuenta operativa.
+- Lista agrupada por día con concepto, contexto de cuenta/categoría, miembro, nota e importe financieramente correcto.
+- Búsqueda local por concepto, nota, cuenta y categoría; filtros por periodo, rango personalizado, tipo, cuenta, categoría y miembro.
+- Apps Script `3.0.0-phase3` y migración idempotente que añade `note` sin modificar el resto de datos.
+
+### Deliberadamente fuera
+
+- Recurrencias y su filtro, reservados para Fase 4.
+- Presupuestos/proyecciones, objetivos y análisis funcionales, reservados para Fases 5, 6 y 8.
+- Reglas de meses cerrados, que se incorporan con cierres en Fase 7.
+
+### Criterio de salida
+
+- Lint, typecheck, tests, build y CI/Pages verdes.
+- `migratePhase3` ejecutada y Web App `3.0.0-phase3` desplegado con la misma URL.
+- En ambos iPhone: navegación, Inicio, CRUD y notas compartidas, agrupación, búsqueda/filtros, ajuste desde cuenta y convergencia offline sin duplicados.
+
+### Validación automatizada local
+
+- `npm run lint`: verde, sin warnings.
+- `npm run typecheck`: verde.
+- `npm test`: 11 archivos y 55 tests verdes, incluida la migración idempotente del esquema 3.
+- `npm run build`: verde; app shell y service worker generados con 7 recursos precacheados.
+
 ## Fases siguientes — no iniciadas
 
-- **Fase 3:** movimientos completos, filtros, búsqueda, agrupación y cinco áreas principales.
 - **Fase 4:** reglas recurrentes y ocurrencias idempotentes.
 - **Fase 5:** presupuestos y plan mensual.
 - **Fase 6:** objetivos virtuales y patrimonio.

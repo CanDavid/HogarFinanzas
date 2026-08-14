@@ -15,8 +15,10 @@ describe('TransactionForm', () => {
     render(<TransactionForm accounts={accounts} categories={categories} onSave={save} />)
     fireEvent.change(screen.getByLabelText('Importe'), { target: { value: '12,34' } })
     fireEvent.change(screen.getByLabelText('Concepto'), { target: { value: 'Compra' } })
+    fireEvent.click(screen.getByText('Nota opcional'))
+    fireEvent.change(screen.getByLabelText('Nota'), { target: { value: 'Compra semanal' } })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar movimiento' }))
-    await vi.waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 1234, concept: 'Compra', kind: 'expense' })))
+    await vi.waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 1234, concept: 'Compra', note: 'Compra semanal', kind: 'expense' })))
   })
 
   it('reports invalid decimal precision accessibly', async () => {
@@ -42,8 +44,8 @@ describe('TransactionForm', () => {
 
   it('allows a signed account adjustment without changing normal amount parsing', async () => {
     const save = vi.fn().mockResolvedValue(undefined)
-    render(<TransactionForm accounts={accounts} categories={categories} onSave={save} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Ajuste' }))
+    render(<TransactionForm accounts={accounts} categories={categories} initialKind="adjustment" initialAccountId="account-1" onSave={save} />)
+    expect(screen.getByText('Ajuste manual de saldo')).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Importe'), { target: { value: '-10,50' } })
     fireEvent.change(screen.getByLabelText('Concepto'), { target: { value: 'Corrección' } })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar movimiento' }))

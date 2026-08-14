@@ -1,6 +1,6 @@
 /* global ContentService, LockService, PropertiesService, Session, SpreadsheetApp, Utilities */
 
-const APP_VERSION = '2.0.0-phase2';
+const APP_VERSION = '3.0.0-phase3';
 const SESSION_DAYS = 30;
 const ALLOWED_USERS = ['david', 'esther'];
 const SHEETS = {
@@ -8,7 +8,7 @@ const SHEETS = {
   Users: ['id', 'displayName', 'active'],
   Accounts: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'name', 'type', 'initialBalanceCents', 'includeInNetWorth', 'includeInLiquidity', 'archivedAt'],
   Categories: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'name', 'kind', 'icon', 'archivedAt'],
-  Transactions: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'kind', 'amountCents', 'concept', 'date', 'accountId', 'categoryId', 'sourceAccountId', 'destinationAccountId'],
+  Transactions: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'kind', 'amountCents', 'concept', 'date', 'accountId', 'categoryId', 'sourceAccountId', 'destinationAccountId', 'note'],
   RecurringRules: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'],
   Budgets: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'],
   Goals: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'],
@@ -20,7 +20,7 @@ const SHEETS = {
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Hogar Finanzas')
     .addItem('Inicializar o cambiar clave', 'initializeFromPrompt')
-    .addItem('Migrar a Fase 2', 'migratePhase2')
+    .addItem('Migrar a Fase 3', 'migratePhase3')
     .addToUi();
 }
 
@@ -60,7 +60,7 @@ function initializeProject(householdKey) {
   if (!spreadsheet) throw new Error('Vincula este script a una hoja de cálculo.');
   Object.keys(SHEETS).forEach(function (name) { ensureSheet_(spreadsheet, name, SHEETS[name]); });
   seedUsers_(spreadsheet);
-  setMeta_(spreadsheet, 'schemaVersion', '2');
+  setMeta_(spreadsheet, 'schemaVersion', '3');
   if (getMeta_(spreadsheet, 'changeSequence') === null) setMeta_(spreadsheet, 'changeSequence', '0');
   seedCategories_(spreadsheet);
 
@@ -84,6 +84,17 @@ function migratePhase2() {
   seedUsers_(spreadsheet);
   seedCategories_(spreadsheet);
   return { schemaVersion: 2, categories: readObjects_(spreadsheet.getSheetByName('Categories'), SHEETS.Categories).length };
+}
+
+function migratePhase3() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  if (!spreadsheet) throw new Error('Vincula este script a una hoja de cálculo.');
+  Object.keys(SHEETS).forEach(function (name) { ensureSheet_(spreadsheet, name, SHEETS[name]); });
+  if (getMeta_(spreadsheet, 'changeSequence') === null) setMeta_(spreadsheet, 'changeSequence', '0');
+  setMeta_(spreadsheet, 'schemaVersion', '3');
+  seedUsers_(spreadsheet);
+  seedCategories_(spreadsheet);
+  return { schemaVersion: 3, transactionColumns: SHEETS.Transactions.length };
 }
 
 function login_(request) {
@@ -189,6 +200,7 @@ function validateTransaction_(spreadsheet, record, legacy) {
   if (!record || ['income', 'expense', 'transfer', 'adjustment'].indexOf(record.kind) === -1) throw apiError_('invalid_record', 'Tipo de movimiento inválido.');
   if (!Number.isSafeInteger(record.amountCents) || (record.kind === 'adjustment' ? record.amountCents === 0 : record.amountCents <= 0)) throw apiError_('invalid_amount', 'Importe no válido.');
   if (typeof record.concept !== 'string' || !record.concept.trim() || record.concept.length > 120) throw apiError_('invalid_concept', 'Concepto no válido.');
+  if (record.note !== undefined && (typeof record.note !== 'string' || record.note.length > 500)) throw apiError_('invalid_note', 'Nota no válida.');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(record.date)) throw apiError_('invalid_date', 'Fecha no válida.');
   if (legacy) return;
   if (record.kind === 'transfer') {
@@ -235,7 +247,7 @@ function serverRecord_(entityType, payload, version, sequence, createdBy, delete
   };
   if (entityType === 'transaction') return Object.assign(common, {
     kind: payload.kind, amountCents: payload.amountCents, concept: payload.concept.trim(), date: payload.date,
-    accountId: payload.accountId || '', categoryId: payload.categoryId || '', sourceAccountId: payload.sourceAccountId || '', destinationAccountId: payload.destinationAccountId || '',
+    accountId: payload.accountId || '', categoryId: payload.categoryId || '', sourceAccountId: payload.sourceAccountId || '', destinationAccountId: payload.destinationAccountId || '', note: String(payload.note || '').trim(),
   });
   if (entityType === 'account') return Object.assign(common, {
     name: payload.name.trim(), type: payload.type, initialBalanceCents: payload.initialBalanceCents,
@@ -319,7 +331,7 @@ function normalizeTransaction_(row) {
     version: Number(row.version), changeSequence: Number(row.changeSequence), kind: String(row.kind),
     amountCents: Number(row.amountCents), concept: String(row.concept), date: normalizeDateCell_(row.date),
     accountId: row.accountId ? String(row.accountId) : null, categoryId: row.categoryId ? String(row.categoryId) : null,
-    sourceAccountId: row.sourceAccountId ? String(row.sourceAccountId) : null, destinationAccountId: row.destinationAccountId ? String(row.destinationAccountId) : null,
+    sourceAccountId: row.sourceAccountId ? String(row.sourceAccountId) : null, destinationAccountId: row.destinationAccountId ? String(row.destinationAccountId) : null, note: row.note ? String(row.note) : '',
   };
 }
 
