@@ -45,14 +45,17 @@ describe('LocalFinanceRepository', () => {
     expect((await repository.listTransactions())[0].date).toBe('2026-08-14')
   })
 
-  it('creates and archives accounts and categories without deleting them', async () => {
+  it('archives and restores accounts and categories without deleting them', async () => {
     const repository = new LocalFinanceRepository()
     const account = await repository.createAccount({ name: 'Principal', type: 'checking', initialBalanceCents: 5000, includeInNetWorth: true, includeInLiquidity: true }, 'david')
     const category = await repository.createCategory({ name: 'Comida', kind: 'expense', icon: '●' }, 'david')
     await repository.archiveAccount(account.id); await repository.archiveCategory(category.id)
     expect((await repository.listAccounts())[0].archivedAt).toBeTruthy()
     expect((await repository.listCategories())[0].archivedAt).toBeTruthy()
-    expect((await repository.pendingOperations()).map((item) => item.entityType)).toEqual(['account', 'category', 'account', 'category'])
+    await repository.restoreAccount(account.id); await repository.restoreCategory(category.id)
+    expect((await repository.listAccounts())[0].archivedAt).toBeNull()
+    expect((await repository.listCategories())[0].archivedAt).toBeNull()
+    expect((await repository.pendingOperations()).map((item) => item.entityType)).toEqual(['account', 'category', 'account', 'category', 'account', 'category'])
   })
 })
 

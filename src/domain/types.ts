@@ -97,9 +97,11 @@ export interface SyncRepository {
   createAccount(input: AccountInput, userId: UserId): Promise<Account>
   updateAccount(id: string, input: AccountInput): Promise<Account>
   archiveAccount(id: string): Promise<void>
+  restoreAccount(id: string): Promise<void>
   createCategory(input: CategoryInput, userId: UserId): Promise<Category>
   updateCategory(id: string, input: CategoryInput): Promise<Category>
   archiveCategory(id: string): Promise<void>
+  restoreCategory(id: string): Promise<void>
   pendingOperations(): Promise<SyncOperation[]>
   failedOperations(): Promise<SyncOperation[]>
   markTransportFailure(message: string): Promise<void>

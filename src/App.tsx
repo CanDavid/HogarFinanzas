@@ -83,11 +83,13 @@ export default function App() {
       {view === 'accounts' && <AccountManager accounts={accounts} balances={portfolio.balances}
         onCreate={(input) => afterLocalChange(() => repository.createAccount(input, session.userId))}
         onUpdate={(id, input) => afterLocalChange(() => repository.updateAccount(id, input))}
-        onArchive={(id) => afterLocalChange(() => repository.archiveAccount(id))} />}
+        onArchive={(id) => afterLocalChange(() => repository.archiveAccount(id))}
+        onRestore={(id) => afterLocalChange(() => repository.restoreAccount(id))} />}
       {view === 'categories' && <CategoryManager categories={categories}
         onCreate={(input) => afterLocalChange(() => repository.createCategory(input, session.userId))}
         onUpdate={(id, input) => afterLocalChange(() => repository.updateCategory(id, input))}
-        onArchive={(id) => afterLocalChange(() => repository.archiveCategory(id))} />}
+        onArchive={(id) => afterLocalChange(() => repository.archiveCategory(id))}
+        onRestore={(id) => afterLocalChange(() => repository.restoreCategory(id))} />}
     </main><footer>Hogar Finanzas · datos disponibles sin conexión</footer>
   </div>
 }

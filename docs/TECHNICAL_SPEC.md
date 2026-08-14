@@ -71,7 +71,7 @@ interface Category {
 - Dinero como entero seguro positivo en céntimos, validado con `Number.isSafeInteger`.
 - `transfer` es un único movimiento con origen/destino; `adjustment` aplica una variación firmada a una cuenta. Ninguno cuenta como ingreso o gasto.
 - La eliminación asigna `deletedAt`; no borra la fila compartida.
-- Cuentas y categorías con histórico se archivan mediante `archivedAt`; no se eliminan.
+- Cuentas y categorías con histórico se archivan mediante `archivedAt`; no se eliminan. Reactivar asigna `archivedAt = null` como una actualización sincronizable normal.
 
 ## 4. IndexedDB
 
@@ -149,7 +149,7 @@ npm run build
 
 ## 10. Pruebas y aceptación
 
-Automatización: céntimos; saldos, patrimonio, liquidez, transferencias y ajustes; archivado; tombstones; persistencia y cola por entidad; cursor y sesión; formularios accesibles; router Apps Script; manifest/service worker.
+Automatización: céntimos; saldos, patrimonio, liquidez, transferencias y ajustes; archivado/reactivación; tombstones; persistencia y cola por entidad; cursor y sesión; formularios accesibles; router Apps Script; manifest/service worker.
 
 Aceptación real obligatoria:
 

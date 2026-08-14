@@ -67,7 +67,8 @@ export class LocalFinanceRepository implements SyncRepository {
     return this.updateEntity('account', id, input) as Promise<Account>
   }
 
-  async archiveAccount(id: string): Promise<void> { await this.archiveEntity('account', id) }
+  async archiveAccount(id: string): Promise<void> { await this.setArchived('account', id, true) }
+  async restoreAccount(id: string): Promise<void> { await this.setArchived('account', id, false) }
 
   async createCategory(input: CategoryInput, userId: UserId): Promise<Category> {
     validateCategoryInput(input)
@@ -81,7 +82,8 @@ export class LocalFinanceRepository implements SyncRepository {
     return this.updateEntity('category', id, input) as Promise<Category>
   }
 
-  async archiveCategory(id: string): Promise<void> { await this.archiveEntity('category', id) }
+  async archiveCategory(id: string): Promise<void> { await this.setArchived('category', id, true) }
+  async restoreCategory(id: string): Promise<void> { await this.setArchived('category', id, false) }
 
   async pendingOperations(): Promise<SyncOperation[]> {
     return (await (await getDatabase()).getAll('outbox')).filter((item) => !item.permanentFailure)
@@ -159,11 +161,12 @@ export class LocalFinanceRepository implements SyncRepository {
     return updated
   }
 
-  private async archiveEntity(entityType: 'account' | 'category', id: string): Promise<void> {
+  private async setArchived(entityType: 'account' | 'category', id: string, archived: boolean): Promise<void> {
     const database = await getDatabase()
     const current = entityType === 'account' ? await database.get('accounts', id) : await database.get('categories', id)
-    if (!current || current.deletedAt || current.archivedAt) return
-    const updated = { ...current, archivedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+    if (!current || current.deletedAt || Boolean(current.archivedAt) === archived) return
+    const now = new Date().toISOString()
+    const updated = { ...current, archivedAt: archived ? now : null, updatedAt: now }
     await this.writeLocalChange(entityType, 'update', updated, current.version)
   }
 

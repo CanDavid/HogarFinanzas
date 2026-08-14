@@ -591,6 +591,7 @@ No hay conexión automática con brokers ni cotizaciones en v1.
 - Añadir cuenta
 - Editar cuenta
 - Archivar cuenta
+- Reactivar cuenta archivada
 - Ajustar saldo
 - Ver movimientos de la cuenta
 
@@ -733,6 +734,7 @@ Secciones:
 ## Cuentas
 
 - crear/editar/archivar.
+- reactivar cuentas archivadas.
 
 ## Categorías
 
@@ -741,6 +743,7 @@ Secciones:
 - icono;
 - orden;
 - archivar.
+- reactivar categorías archivadas.
 
 ## Recurrentes
 

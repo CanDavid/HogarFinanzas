@@ -70,12 +70,12 @@ Cumplido el 2026-08-14 tras confirmación expresa de la matriz completa en ambos
 
 ## Fase 2 — Cuentas, categorías y núcleo financiero
 
-Estado: **implementada localmente; pendiente de despliegue y aceptación externa — 2026-08-14**.
+Estado: **implementada y validada salvo reactivación de archivados; hotfix validado localmente y pendiente de publicación/aceptación — 2026-08-15**.
 
 ### Alcance cerrado
 
-- Cuentas corriente, ahorro, inversión y efectivo con saldo inicial, inclusión en patrimonio/liquidez y archivado no destructivo.
-- Categorías separadas para ingresos y gastos, con catálogo inicial, creación/edición y archivado no destructivo.
+- Cuentas corriente, ahorro, inversión y efectivo con saldo inicial, inclusión en patrimonio/liquidez, archivado no destructivo y reactivación.
+- Categorías separadas para ingresos y gastos, con catálogo inicial, creación/edición, archivado no destructivo y reactivación.
 - Movimientos vinculados a cuenta/categoría; transferencia como un único registro con origen y destino; ajuste como variación firmada de una cuenta.
 - Motor puro y probado para saldo por cuenta, patrimonio y liquidez. Transferencias y ajustes no alteran ingresos/gastos.
 - Persistencia offline y sincronización incremental/idempotente de cuentas, categorías y movimientos, incluida migración compatible de IndexedDB y Sheets.
@@ -85,16 +85,17 @@ Estado: **implementada localmente; pendiente de despliegue y aceptación externa
 
 - Lint, typecheck, tests, build y CI verdes.
 - Apps Script actualizado y migración idempotente ejecutada.
-- En ambos iPhone: crear/editar/archivar cuentas y categorías, registrar ingreso/gasto/transferencia/ajuste offline y online, y comprobar convergencia, saldos y patrimonio sin doble contabilización.
+- En ambos iPhone: crear/editar/archivar/reactivar cuentas y categorías, registrar ingreso/gasto/transferencia/ajuste offline y online, y comprobar convergencia, saldos y patrimonio sin doble contabilización.
 
 ### Validación automatizada
 
 - `npm run lint`: verde, sin warnings.
 - `npm run typecheck`: verde.
-- `npm test`: 9 archivos y 42 tests verdes.
+- `npm test`: 9 archivos y 43 tests verdes, incluida reactivación local sin pérdida de histórico.
 - `npm run build`: verde; app shell y service worker generados con 7 recursos precacheados.
 - `PWA CI #7` y `Deploy GitHub Pages #7` sobre `6f0634c`: verdes. El bundle HTTPS publicado responde 200 y contiene las áreas de cuentas, categorías y transferencias.
-- Pendiente: migración `migratePhase2`, Web App `2.0.0-phase2` y matriz `IPHONE_PHASE2.md`.
+- El usuario confirmó el despliegue/migración y toda la matriz original de Fase 2 como satisfactorios.
+- Antes del cierre solicitó reactivar cuentas/categorías archivadas; no estaba asignado a fases futuras y se incorporó como hotfix de esta fase. Solo queda publicar y validar esta ampliación en ambos iPhone.
 
 ## Fases siguientes — no iniciadas
 

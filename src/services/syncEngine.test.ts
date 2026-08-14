@@ -18,9 +18,11 @@ class RepositoryStub implements SyncRepository {
   createAccount = async () => { throw new Error('unused') }
   updateAccount = async () => { throw new Error('unused') }
   archiveAccount = async () => undefined
+  restoreAccount = async () => undefined
   createCategory = async () => { throw new Error('unused') }
   updateCategory = async () => { throw new Error('unused') }
   archiveCategory = async () => undefined
+  restoreCategory = async () => undefined
   pendingOperations = async () => this.operations
   failedOperations = async () => []
   markTransportFailure = async (message: string) => { this.transportError = message }

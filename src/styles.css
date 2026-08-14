@@ -56,6 +56,7 @@ form > button, .form-actions button { min-height: 2.8rem; padding: .65rem 1rem; 
 .kind-icon.income { color: #287159; background: #dcebe4; }
 .kind-icon.expense { color: #a84a33; background: #f2dfd9; }
 .delete { padding: .5rem; border: 0; color: #9a371f; background: transparent; font-size: .75rem; }
+.restore { padding: .5rem; border: 0; color: #236451; background: transparent; font-size: .75rem; font-weight: 700; }
 .empty { margin-top: 1rem; padding: 1.2rem; border: 1px dashed #b8c4bd; border-radius: 1rem; color: #61716b; text-align: center; }
 .management { padding: 1.2rem .1rem; }
 .management > .card { margin: 1rem 0; }
