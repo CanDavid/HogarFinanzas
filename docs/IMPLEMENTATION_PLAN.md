@@ -10,7 +10,7 @@ El scaffold Swift se compiló y probó correctamente, pero no contenía datos ni
 
 ## Fase 1 — PWA compartida y offline
 
-Estado: **implementada localmente; pendiente de despliegue y validación externa**.
+Estado: **implementada y publicada; transporte validado en Windows, pendiente de validación en ambos iPhone**.
 
 ### Resultado esperado
 
@@ -39,9 +39,8 @@ Estado: **implementada localmente; pendiente de despliegue y validación externa
 
 ### Validaciones abiertas
 
-- Probar que Chromium y Safari leen el POST redirigido del Web App.
-- Convertir el repositorio en público y habilitar Pages.
-- Desplegar Apps Script con las credenciales del propietario.
+- Probar que Safari en ambos iPhone lee el POST redirigido del Web App.
+- Confirmar el acceso real como David y Esther sin compartir la clave doméstica.
 - Validar CRUD, offline y concurrencia en ambos iPhone.
 
 ### Validación automatizada local
@@ -57,6 +56,9 @@ Estado: **implementada localmente; pendiente de despliegue y validación externa
 - `PWA CI #3` y `Deploy GitHub Pages #3` sobre `9e930ae`: verdes.
 - PWA accesible en `https://candavid.github.io/HogarFinanzas/`; HTML, manifest y service worker comprobados por HTTPS con respuesta 200.
 - Las acciones oficiales usan sus releases Node 24; los avisos de runtime del primer run quedaron eliminados.
+- Web App desplegado en Google Apps Script: el health check real respondió HTTP 200 con JSON de servicio y versión tras la redirección de ContentService.
+- Spike de transporte superado en el navegador de Windows: la PWA publicó un POST `text/plain`, leyó la respuesta redirigida y mostró el error de credenciales esperado para una clave ficticia. No se usó ni almacenó la clave doméstica real.
+- Variable pública de repositorio `VITE_APPS_SCRIPT_URL` configurada en GitHub Actions para incorporar el endpoint al build de Pages; no contiene secretos.
 
 ### Criterio de salida
 
@@ -101,4 +103,4 @@ Las mutaciones se ordenan con Script Lock; gana la última aceptada. Tombstones 
 
 ### 2026-08-14 — Validación de transporte
 
-Se probará POST simple `text/plain`. JSONP y `no-cors` quedan prohibidos. Un fallo CORS bloquea la fase y exige una decisión antes de HTMLService.
+Se usa POST simple `text/plain`. JSONP y `no-cors` quedan prohibidos. La prueba real en Windows confirmó que el navegador puede leer la respuesta redirigida de ContentService; queda pendiente repetir la validación y la matriz funcional completa en Safari sobre ambos iPhone.
