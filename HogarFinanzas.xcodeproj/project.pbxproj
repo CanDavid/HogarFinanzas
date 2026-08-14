@@ -29,9 +29,24 @@
 		A05000000000000000000003 /* HogarFinanzasUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HogarFinanzasUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A03000000000000000000001 /* Exceptions for "HogarFinanzas" folder in "HogarFinanzas" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Data/.gitkeep,
+				DesignSystem/.gitkeep,
+				Domain/.gitkeep,
+			);
+			target = A08000000000000000000001 /* HogarFinanzas */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A02000000000000000000001 /* HogarFinanzas */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A03000000000000000000001 /* Exceptions for "HogarFinanzas" folder in "HogarFinanzas" target */,
+			);
 			path = HogarFinanzas;
 			sourceTree = "<group>";
 		};
