@@ -59,6 +59,7 @@ Estado: **implementada y publicada; transporte validado en Windows, pendiente de
 - Web App desplegado en Google Apps Script: el health check real respondió HTTP 200 con JSON de servicio y versión tras la redirección de ContentService.
 - Spike de transporte superado en el navegador de Windows: la PWA publicó un POST `text/plain`, leyó la respuesta redirigida y mostró el error de credenciales esperado para una clave ficticia. No se usó ni almacenó la clave doméstica real.
 - Variable pública de repositorio `VITE_APPS_SCRIPT_URL` configurada en GitHub Actions para incorporar el endpoint al build de Pages; no contiene secretos.
+- `PWA CI #4` y `Deploy GitHub Pages #4` sobre `91e3d6e`: verdes. La comprobación HTTPS posterior confirmó que el bundle servido responde 200 e incluye el identificador del despliegue Apps Script configurado.
 
 ### Criterio de salida
 
