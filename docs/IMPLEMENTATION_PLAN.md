@@ -104,7 +104,7 @@ El usuario autorizó expresamente cerrar el checkpoint y avanzar a Fase 3 el 202
 
 ## Fase 3 — Movimientos completos y navegación
 
-Estado: **implementada localmente; pendiente de despliegue Google, CI/Pages y aceptación externa — 2026-08-15**.
+Estado: **implementada y publicada; pendiente de migración/despliegue Google y aceptación en iPhone — 2026-08-15**.
 
 ### Alcance cerrado
 
@@ -133,6 +133,8 @@ Estado: **implementada localmente; pendiente de despliegue Google, CI/Pages y ac
 - `npm run typecheck`: verde.
 - `npm test`: 11 archivos y 55 tests verdes, incluida la migración idempotente del esquema 3.
 - `npm run build`: verde; app shell y service worker generados con 7 recursos precacheados.
+- `PWA CI #9` y `Deploy GitHub Pages #9` sobre `cb43d4a`: verdes. La página y el bundle responden 200 y contienen la navegación de cinco áreas, búsqueda y estados de fases futuras.
+- El health check real continúa respondiendo `2.0.0-phase2`; `migratePhase3`, el despliegue `3.0.0-phase3` y la matriz `IPHONE_PHASE3.md` quedan pendientes de las acciones externas del usuario.
 
 ## Fases siguientes — no iniciadas
 
