@@ -52,7 +52,9 @@ Estado: **implementada localmente; pendiente de despliegue y validación externa
 - `npm run build`: verde; manifest y service worker generados, 7 recursos precacheados.
 - Revisión visual local a 390 × 844 px en modo oscuro: corregido contraste de etiquetas y comprobada la pantalla de acceso.
 - `npm install`: 0 vulnerabilidades notificadas.
-- CI/Pages: workflows preparados, pendientes de ejecución tras push y configuración externa.
+- GitHub Actions `PWA CI #1` sobre `92d8464`: verde en Linux (lint, typecheck, 27 tests y build).
+- GitHub Pages #1: build bloqueado en `configure-pages` porque Pages aún no está habilitado y el repositorio continúa privado; no es un fallo de compilación. Requiere los pasos externos acordados.
+- Las acciones oficiales se actualizaron a sus releases Node 24 para eliminar los avisos de runtime observados en el primer run.
 
 ### Criterio de salida
 
