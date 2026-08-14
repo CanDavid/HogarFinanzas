@@ -2,7 +2,7 @@
 
 ## Mission
 
-Build an iPhone household-finance app for two people sharing the same household data through iCloud. The app must remain simple for users, financially correct, offline-first, and incrementally testable.
+Build a mobile-first household-finance PWA for David and Esther. It must be simple, financially correct, offline-first, incrementally testable, and permanently operable at zero mandatory cost.
 
 ## Authoritative documents
 
@@ -11,110 +11,92 @@ Before changing code, read:
 1. `docs/PRODUCT_SPEC.md`
 2. `docs/TECHNICAL_SPEC.md`
 3. `docs/IMPLEMENTATION_PLAN.md`
+4. `docs/ADR-001-ZERO-COST-PWA.md`
 
-If code and docs disagree, stop expanding scope and reconcile the discrepancy by updating the relevant decision in `docs/IMPLEMENTATION_PLAN.md`.
+If code and docs disagree, stop expanding scope and reconcile the decision in `docs/IMPLEMENTATION_PLAN.md`.
 
 ## Working mode
 
 - Work on exactly one implementation phase at a time.
-- Do not pre-build features from future phases unless strictly required by the current phase.
-- At the end of each phase: build, run relevant tests, review the diff, update the plan, and provide manual test steps.
-- Never leave the repository in a knowingly non-compiling state at a phase checkpoint.
-- Prefer a small working vertical slice over a large incomplete architecture.
+- Do not pre-build future features unless the active phase strictly requires infrastructure for them.
+- End every phase with lint, typecheck, tests, production build, diff review, plan update, and manual validation steps.
+- Never leave the repository knowingly broken at a checkpoint.
+- A phase requiring real Google/iPhone behavior remains pending until that behavior is observed.
 
-## Product rules that must never be violated
+## Invariants
 
 - A transfer between owned accounts is not income or expense.
 - Savings/investment destinations are not expenses merely because cash moved there.
 - Goal allocations are virtual earmarks and do not change net worth by themselves.
 - Closed months are read-only until explicitly reopened.
-- Accounts/categories with history are archived, not destructively deleted.
-- The shared household must work for two different Apple IDs.
+- Accounts/categories with history are archived, never destructively deleted.
+- Shared data must converge for David and Esther without duplicates.
+- Financial descriptions, amounts, household keys, and session tokens must never be logged.
 
-## Money rules
+## Money
 
-- Never persist money as `Double` or `Float`.
-- Persist money as `Int64` cents.
-- Use `Decimal` only at UI/input boundaries when parsing/rounding.
-- All calculation behavior must be covered by deterministic unit tests.
+- Persist and exchange money only as integer cents.
+- In TypeScript/Apps Script, validate every amount with `Number.isSafeInteger`.
+- Parse and format decimals only at UI boundaries.
+- Cover calculations with deterministic unit tests.
 
-## Architecture constraints
+## Architecture
 
-- SwiftUI UI.
-- Domain logic must not depend on SwiftUI, Core Data, or CloudKit.
-- Core Data + `NSPersistentCloudKitContainer` + CloudKit Sharing for the shared MVP.
-- Encapsulate persistence behind repositories/services.
-- Use Apple frameworks only in MVP unless a new dependency is explicitly justified.
-- Prefer dependency injection through `AppEnvironment`; avoid new global singletons.
-- Use async/await where appropriate and keep UI work on `@MainActor`.
+- React + TypeScript + Vite PWA, hosted on GitHub Pages.
+- IndexedDB is the local source used by the UI; local writes never wait for the network.
+- Google Sheets is the shared remote store, accessed only through a Google Apps Script Web App.
+- Keep domain rules independent of React, IndexedDB, fetch, Apps Script, and Sheets.
+- Encapsulate persistence and transport behind repositories/services.
+- GitHub Actions must use Linux runners only.
+- Mandatory operating cost must remain €0. Add no paid service or required subscription.
+- Do not add Swift, Xcode projects, Apple Developer dependencies, Core Data, CloudKit, TestFlight, or macOS runners.
 
-## CloudKit rules
+## Sync and security
 
-- Treat sharing as an early technical risk; Phase 1 must prove bidirectional sync on two Apple IDs before expanding the model.
-- The `Household` is the shared root concept.
-- A transfer must be one persisted object with source and destination, not two separately synchronized records.
-- Recurrence generation must be idempotent.
-- Normal sync latency must not block the UI.
-- Local data must remain usable offline.
-- Do not log private financial descriptions or amounts in production logs.
+- Generate stable record and operation UUIDs client-side.
+- Every syncable row includes `id`, timestamps, `deletedAt`, `createdBy`, `version`, and `changeSequence`.
+- Synchronization is incremental and every pushed operation is idempotent.
+- Serialize server mutations with `LockService`.
+- Deletes are tombstones; a stale update cannot resurrect one.
+- Store hashes and signing secrets in Script Properties, never in Sheets or Git.
+- Only `david` and `esther` are valid identities for this single household.
+- Never use JSONP, `no-cors`, financial values in URLs, or secrets in `VITE_*` variables.
 
-## Testing requirements
+## Testing
 
-Use Swift Testing for unit/integration logic and XCTest/XCUITest for UI automation.
+- Vitest for domain, storage, sync, and Apps Script adapter tests.
+- Testing Library for UI behavior.
+- `fake-indexeddb` for deterministic local persistence tests.
+- Manual acceptance on both iPhones is mandatory for shared/offline checkpoints.
 
 Before marking a phase complete:
 
-1. Run the target build.
-2. Run all tests created/affected by the phase.
-3. Run the broader suite when practical.
-4. Fix new warnings or document why they are unavoidable.
-5. Check that business logic exists in domain engines, not duplicated in views.
-6. Update phase status and decisions in `docs/IMPLEMENTATION_PLAN.md`.
+1. Run `npm run lint`.
+2. Run `npm run typecheck`.
+3. Run `npm test`.
+4. Run `npm run build`.
+5. Fix new warnings or document unavoidable ones.
+6. Review the complete diff and scan the tracked history for secrets.
+7. Update `docs/IMPLEMENTATION_PLAN.md`.
 
-## Code quality
+## Code and UI quality
 
-- Prefer clear code over clever abstractions.
-- Add protocols when they improve testability/substitution, not automatically.
-- Keep views focused; move calculations out of views.
-- Keep business rules in domain engines.
-- Use semantic names.
-- Comments explain non-obvious reasoning, not obvious syntax.
-- Avoid giant files; split by responsibility when clarity improves.
-- Use `os.Logger`, not permanent `print` statements.
-
-## UI expectations
-
-- Spanish UI strings for MVP.
-- Code identifiers in English.
-- Native iOS appearance; no third-party design framework.
-- Support Dynamic Type and dark mode.
-- Never rely on color alone to convey budget/financial status.
-- Registration of a normal expense should be fast and require minimal taps.
+- Prefer clear code and small modules over speculative abstractions.
+- Keep calculations out of views.
+- Use semantic English identifiers and Spanish user-facing strings.
+- Support small iPhone screens, safe areas, Dynamic Type/browser zoom, dark mode, and accessible names.
+- Never rely on color alone to convey financial or sync status.
+- Do not add permanent `console.log` statements containing application data.
 
 ## Scope protection
 
-Do not implement these during MVP phases unless the plan is explicitly amended:
+Do not implement unless the plan explicitly reaches the corresponding phase:
 
-- bank/Open Banking integration;
-- broker/market price APIs;
-- OCR;
-- generative AI;
-- widgets;
-- Apple Watch;
-- multi-currency;
-- multi-household;
-- subscription/paywall;
+- banking/Open Banking, broker prices, OCR, generative AI;
+- widgets, Apple Watch, native applications;
+- multi-currency, multi-household, subscriptions/paywalls;
 - expense splitting/debt settlement.
 
 ## Phase checkpoint response
 
-When finishing a phase, report:
-
-- What is implemented.
-- Files/areas materially changed.
-- Tests run and their result.
-- Manual steps the user should test on simulator/device.
-- Known limitations or follow-ups for the next phase.
-- Whether `docs/IMPLEMENTATION_PLAN.md` was updated.
-
-Do not silently continue to the next phase after a checkpoint unless explicitly asked.
+Report what changed, tests and results, manual iPhone steps, limitations, external actions still required, and whether the implementation plan was updated. Stop after the active checkpoint until the user explicitly validates or advances it.

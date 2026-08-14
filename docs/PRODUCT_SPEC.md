@@ -2,7 +2,7 @@
 
 ## 1. Visión del producto
 
-Hogar Finanzas es una aplicación nativa de iPhone para que dos personas de un mismo hogar lleven juntas el control financiero doméstico de forma simple, visual y útil para decidir.
+Hogar Finanzas es una aplicación web progresiva (PWA), optimizada para instalarse y usarse en iPhone, para que dos personas de un mismo hogar lleven juntas el control financiero doméstico de forma simple, visual y útil para decidir.
 
 La aplicación no pretende ser una contabilidad profesional ni un agregador bancario. Su objetivo es responder rápidamente a cinco preguntas:
 
@@ -18,10 +18,10 @@ Principio rector: registrar un movimiento debe ser rápido; interpretar la situa
 
 ### 2.1 Tipos de usuario
 
-- **Propietario del hogar**: crea el hogar compartido e invita al segundo miembro.
-- **Miembro del hogar**: acepta la invitación y participa con permisos de lectura y escritura.
+- **David**: miembro identificado del hogar con lectura y escritura.
+- **Esther**: miembro identificado del hogar con lectura y escritura.
 
-En la primera versión ambos tienen prácticamente los mismos permisos funcionales. Solo el propietario puede dejar de compartir el hogar o gestionar la invitación original.
+En la primera versión ambos tienen los mismos permisos funcionales. La configuración técnica de Google pertenece al propietario del despliegue y no forma parte del uso cotidiano.
 
 ### 2.2 Identidad visible dentro de la app
 
@@ -65,12 +65,12 @@ La app distingue claramente:
 
 ### 3.4 Visual
 
-- Diseño nativo iOS con SwiftUI.
-- Tipografía del sistema.
+- Diseño web mobile-first con apariencia coherente en iPhone.
+- Tipografía del sistema y controles web accesibles.
 - Tarjetas con jerarquía clara.
 - Colores semánticos, nunca como único indicador.
 - Gráficos solo cuando aporten información.
-- Soporte de modo claro/oscuro y Dynamic Type.
+- Soporte de modo claro/oscuro, zoom y tamaños de texto del sistema.
 
 ## 4. Navegación principal
 
@@ -101,63 +101,40 @@ Pantallas secundarias accesibles desde estas secciones:
 
 ## 5.1 Objetivo de usuario
 
-Permitir que una persona cree un hogar y que la segunda se una mediante una invitación de iCloud/CloudKit.
+Permitir que David y Esther entren en el mismo hogar con su identidad y una clave doméstica compartida, sin crear cuentas en servicios de pago.
 
 ## 5.2 Estados iniciales
 
-### Estado A — Sin hogar configurado
+### Estado A — Servidor sin configurar
 
 Pantalla:
 
 - Título: “Tus finanzas de casa, compartidas”
 - Explicación breve.
-- Botón principal: **Crear hogar**
-- Botón secundario: **Unirme a un hogar**
-- Estado de iCloud visible si no está disponible.
+- Campo para la URL pública del Web App.
+- Selector de identidad: David o Esther.
+- Campo para la clave doméstica.
+- Mensaje comprensible si no hay conexión o el servidor no está preparado.
 
-### Estado B — Crear hogar
+### Estado B — Entrar en el hogar
 
-Campos:
+Campos: identidad, clave doméstica y, dentro de configuración avanzada, URL de Apps Script.
 
-- Nombre del hogar. Valor sugerido: “Casa”.
-- Nombre visible del usuario.
-- Moneda: EUR por defecto.
+Acción: **Entrar en casa**.
 
-Acción: **Crear hogar**.
+### Estado C — Uso compartido
 
-Después se ofrece:
+La configuración externa crea previamente los usuarios David y Esther. No existe flujo de invitaciones dentro del MVP.
 
-- Añadir cuentas iniciales.
-- Introducir saldos iniciales.
-- Invitar a la otra persona.
+### Estado D — Primera sincronización
 
-### Estado C — Invitación
-
-Acción principal: **Invitar a mi pareja**.
-
-La app abre el flujo estándar de compartición de iCloud.
-
-Tras enviar la invitación se muestra:
-
-- “Invitación enviada”.
-- Miembros actuales.
-- Opción de volver a compartir/gestionar acceso.
-
-### Estado D — Aceptar hogar
-
-Al abrir una invitación:
-
-- aceptar compartición;
-- cargar el hogar;
-- pedir nombre visible si todavía no existe perfil local;
-- mostrar resumen del hogar;
-- entrar en Inicio.
+Tras autenticarse, la app conserva una sesión local, descarga los movimientos compartidos y entra en Movimientos. Si no hay red, conserva los datos ya descargados.
 
 ## 5.3 Criterios de diseño
 
-- Nunca pedir email o contraseña de Apple dentro de la app.
-- No mostrar términos técnicos como CKShare, private database o shared database.
-- Si iCloud no está disponible, explicar qué falta y permitir reintentar.
+- Nunca pedir credenciales de Google dentro de la app.
+- No mostrar términos técnicos como Apps Script, cursor o tombstone en el uso normal.
+- Explicar si falta red, configuración o autenticación y permitir reintentar.
 
 ---
 
@@ -774,15 +751,15 @@ Secciones:
 
 ## Datos y sincronización
 
-- estado de iCloud;
+- estado local/online y operaciones pendientes;
 - última sincronización conocida;
 - reintentar;
 - explicación de uso compartido.
 
 ## Privacidad
 
-- datos almacenados mediante iCloud/CloudKit;
-- sin servidor propio en v1;
+- datos locales en IndexedDB y copia compartida en Google Sheets mediante Apps Script;
+- sin servicios de pago ni analítica de terceros en v1;
 - sin analítica de terceros en v1.
 
 ---

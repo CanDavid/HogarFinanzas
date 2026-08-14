@@ -1,14 +1,19 @@
-# Xcode user state
-xcuserdata/
-*.xcuserstate
-*.xccheckout
-*.xcscmblueprint
+# Dependencies and generated output
+node_modules/
+dist/
+coverage/
+.vite/
+*.tsbuildinfo
 
-# Build and test output
-DerivedData/
-.build/
-*.xcresult
-build/
+# Local configuration (only the example is versioned)
+.env
+.env.local
+.env.*.local
+
+# Logs and local editor state
+*.log
+.idea/
+.vscode/
 
 # Local operating-system files
 .DS_Store
