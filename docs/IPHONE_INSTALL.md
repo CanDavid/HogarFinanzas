@@ -15,16 +15,16 @@ Marca cada fila y comunica el resultado antes de cerrar la fase.
 
 | Caso | iPhone David | iPhone Esther | Resultado esperado |
 |---|---:|---:|---|
-| Instalación y apertura standalone | ☐ | ☐ | Abre sin barra de Safari |
-| Login | ☐ | ☐ | Identidad correcta, sin pedir Google |
-| David crea gasto | ☐ | ☐ | Esther lo recibe tras sincronizar |
-| Esther crea ingreso | ☐ | ☐ | David lo recibe una sola vez |
-| Editar movimiento remoto | ☐ | ☐ | Ambos convergen al último aceptado |
-| Eliminar movimiento | ☐ | ☐ | Desaparece en ambos y no reaparece |
-| Crear sin conexión | ☐ | ☐ | Se ve localmente y queda pendiente |
-| Cerrar/reabrir sin conexión | ☐ | ☐ | Datos y pendiente persisten |
-| Reconectar ambos | ☐ | ☐ | Convergen sin duplicados |
-| Modo claro/oscuro y texto grande | ☐ | ☐ | Contenido legible y utilizable |
+| Instalación y apertura standalone | ☑ | ☑ | Abre sin barra de Safari |
+| Login | ☑ | ☑ | Identidad correcta, sin pedir Google |
+| David crea gasto | ☑ | ☑ | Esther lo recibe tras sincronizar |
+| Esther crea ingreso | ☑ | ☑ | David lo recibe una sola vez |
+| Editar movimiento remoto | ☑ | ☑ | Ambos convergen al último aceptado |
+| Eliminar movimiento | ☑ | ☑ | Desaparece en ambos y no reaparece |
+| Crear sin conexión | ☑ | ☑ | Se ve localmente y queda pendiente |
+| Cerrar/reabrir sin conexión | ☑ | ☑ | Datos y pendiente persisten |
+| Reconectar ambos | ☑ | ☑ | Convergen sin duplicados |
+| Modo claro/oscuro y texto grande | ☑ | ☑ | Contenido legible y utilizable |
 
 ## Edición concurrente
 
