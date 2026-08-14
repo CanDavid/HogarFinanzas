@@ -93,7 +93,8 @@ Estado: **implementada localmente; pendiente de despliegue y aceptación externa
 - `npm run typecheck`: verde.
 - `npm test`: 9 archivos y 42 tests verdes.
 - `npm run build`: verde; app shell y service worker generados con 7 recursos precacheados.
-- Pendiente: CI/Pages, migración `migratePhase2`, Web App `2.0.0-phase2` y matriz `IPHONE_PHASE2.md`.
+- `PWA CI #7` y `Deploy GitHub Pages #7` sobre `6f0634c`: verdes. El bundle HTTPS publicado responde 200 y contiene las áreas de cuentas, categorías y transferencias.
+- Pendiente: migración `migratePhase2`, Web App `2.0.0-phase2` y matriz `IPHONE_PHASE2.md`.
 
 ## Fases siguientes — no iniciadas
 
