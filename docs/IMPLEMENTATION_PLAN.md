@@ -51,14 +51,15 @@ Abrir app en simulador y cambiar entre las cinco pestañas.
 
 Build y tests verdes sin warnings relevantes.
 
-Estado: [ ] Pendiente
+Estado: [x] Completada — 2026-08-14
 
 ## Estado de ejecución — 2026-08-14
 
 - Bootstrap, targets, pruebas y workflow macOS preparados desde Windows.
-- Pendiente conectar el repositorio privado de GitHub y obtener un build/test verde en Actions.
-- La prueba manual de esta fase se sustituye, por acuerdo, por el UI test en simulador; no se ha probado todavía en iPhone físico.
-- La fase no se marcará como completada hasta recibir el resultado verde del workflow.
+- GitHub Actions run #3 completado correctamente sobre el commit `1d5fc1f`: build-for-testing, Swift Testing y XCUITest verdes en Xcode 16.4 con iOS 18.5.
+- El run final terminó sin anotaciones; se corrigieron durante la fase la inclusión duplicada de placeholders como recursos y la selección ambigua de arquitectura del simulador.
+- La prueba manual de esta fase se sustituyó, por acuerdo, por el UI test que abre la app y recorre las cinco pestañas; no se ha probado todavía en iPhone físico.
+- Fase 1 no iniciada y bloqueada hasta validación expresa del usuario y disponibilidad de Apple Developer Program.
 
 ---
 
