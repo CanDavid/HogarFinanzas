@@ -70,7 +70,7 @@ Cumplido el 2026-08-14 tras confirmación expresa de la matriz completa en ambos
 
 ## Fase 2 — Cuentas, categorías y núcleo financiero
 
-Estado: **implementada y validada salvo reactivación de archivados; hotfix validado localmente y pendiente de publicación/aceptación — 2026-08-15**.
+Estado: **implementada y validada salvo aceptación en iPhone de la reactivación de archivados; hotfix publicado — 2026-08-15**.
 
 ### Alcance cerrado
 
@@ -95,7 +95,8 @@ Estado: **implementada y validada salvo reactivación de archivados; hotfix vali
 - `npm run build`: verde; app shell y service worker generados con 7 recursos precacheados.
 - `PWA CI #7` y `Deploy GitHub Pages #7` sobre `6f0634c`: verdes. El bundle HTTPS publicado responde 200 y contiene las áreas de cuentas, categorías y transferencias.
 - El usuario confirmó el despliegue/migración y toda la matriz original de Fase 2 como satisfactorios.
-- Antes del cierre solicitó reactivar cuentas/categorías archivadas; no estaba asignado a fases futuras y se incorporó como hotfix de esta fase. Solo queda publicar y validar esta ampliación en ambos iPhone.
+- Antes del cierre solicitó reactivar cuentas/categorías archivadas; no estaba asignado a fases futuras y se incorporó como hotfix de esta fase.
+- `PWA CI #8` y `Deploy GitHub Pages #8` sobre `c780b56`: verdes. La página y el bundle publicados responden 200 y el bundle contiene la acción `Desarchivar`. Solo queda validar esta ampliación en ambos iPhone.
 
 ## Fases siguientes — no iniciadas
 
