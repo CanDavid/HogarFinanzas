@@ -31,7 +31,7 @@ jobs:
           xcodebuild build-for-testing \
             -project HogarFinanzas.xcodeproj \
             -scheme HogarFinanzas \
-            -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5' \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5,arch=arm64' \
             -derivedDataPath DerivedData \
             -resultBundlePath BuildResults.xcresult \
             | tee build.log
@@ -42,7 +42,7 @@ jobs:
           xcodebuild test-without-building \
             -project HogarFinanzas.xcodeproj \
             -scheme HogarFinanzas \
-            -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5' \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5,arch=arm64' \
             -derivedDataPath DerivedData \
             -resultBundlePath TestResults.xcresult \
             | tee test.log
