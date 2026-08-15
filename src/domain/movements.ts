@@ -2,6 +2,7 @@ import { monthRange } from './dates'
 import type { Account, Category, Transaction, TransactionKind, UserId } from './types'
 
 export type MovementPeriod = 'current' | 'previous' | 'custom' | 'all'
+export type MovementRecurrence = 'all' | 'recurring' | 'single'
 
 export interface MovementFilters {
   query: string
@@ -10,6 +11,7 @@ export interface MovementFilters {
   accountId: string
   categoryId: string
   userId: UserId | 'all'
+  recurrence: MovementRecurrence
   dateFrom: string
   dateTo: string
 }
@@ -17,7 +19,7 @@ export interface MovementFilters {
 export interface MovementGroup { date: string; transactions: Transaction[] }
 
 export const DEFAULT_MOVEMENT_FILTERS: MovementFilters = {
-  query: '', period: 'current', kind: 'all', accountId: '', categoryId: '', userId: 'all', dateFrom: '', dateTo: '',
+  query: '', period: 'current', kind: 'all', accountId: '', categoryId: '', userId: 'all', recurrence: 'all', dateFrom: '', dateTo: '',
 }
 
 export function filterMovements(
@@ -34,6 +36,8 @@ export function filterMovements(
     if (item.deletedAt) return false
     if (filters.kind !== 'all' && item.kind !== filters.kind) return false
     if (filters.userId !== 'all' && item.createdBy !== filters.userId) return false
+    if (filters.recurrence === 'recurring' && !item.recurringRuleId) return false
+    if (filters.recurrence === 'single' && item.recurringRuleId) return false
     if (filters.categoryId && item.categoryId !== filters.categoryId) return false
     if (filters.accountId && ![item.accountId, item.sourceAccountId, item.destinationAccountId].includes(filters.accountId)) return false
     if (bounds.from && item.date < bounds.from) return false

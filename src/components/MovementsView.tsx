@@ -2,13 +2,13 @@ import { useMemo, useState } from 'react'
 import { normalizeDateOnly, localDateOnly } from '../domain/dates'
 import { DEFAULT_MOVEMENT_FILTERS, filterMovements, groupMovements, type MovementFilters } from '../domain/movements'
 import { formatEuro } from '../domain/money'
-import type { Account, Category, Transaction, TransactionInput, TransactionKind } from '../domain/types'
+import type { Account, Category, RecurringRuleInput, Transaction, TransactionInput, TransactionKind } from '../domain/types'
 import { TransactionForm } from './TransactionForm'
 
 export function MovementsView({ transactions, accounts, categories, startAdding = false, initialKind, initialAccountId, onSave, onDelete }: {
   transactions: Transaction[]; accounts: Account[]; categories: Category[]; startAdding?: boolean
   initialKind?: TransactionKind; initialAccountId?: string
-  onSave(transaction: Transaction | undefined, input: TransactionInput): Promise<void>; onDelete(transaction: Transaction): Promise<void>
+  onSave(transaction: Transaction | undefined, input: TransactionInput, recurrence?: RecurringRuleInput): Promise<void>; onDelete(transaction: Transaction): Promise<void>
 }) {
   const [editing, setEditing] = useState<Transaction | undefined>()
   const [adding, setAdding] = useState(startAdding)
@@ -22,7 +22,7 @@ export function MovementsView({ transactions, accounts, categories, startAdding 
   const categoryNames = useMemo(() => new Map(categories.map((item) => [item.id, `${item.icon} ${item.name}`])), [categories])
   const formOpen = adding || Boolean(editing)
 
-  async function save(input: TransactionInput) { await onSave(editing, input); setEditing(undefined); setAdding(false) }
+  async function save(input: TransactionInput, recurrence?: RecurringRuleInput) { await onSave(editing, input, recurrence); setEditing(undefined); setAdding(false) }
   function edit(transaction: Transaction) { setAdding(false); setEditing(transaction); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   function closeForm() { setAdding(false); setEditing(undefined) }
   function updateFilter<K extends keyof MovementFilters>(key: K, value: MovementFilters[K]) { setFilters((current) => ({ ...current, [key]: value })) }
@@ -36,7 +36,7 @@ export function MovementsView({ transactions, accounts, categories, startAdding 
       <TransactionForm key={editing?.id ?? `new-${draftKind ?? 'standard'}`} transaction={editing} initialKind={draftKind} initialAccountId={draftAccountId} accounts={accounts} categories={categories} onSave={save} onCancel={closeForm} /></section>}
     <section className="movements"><div className="section-title"><h2>Actividad</h2><span>{filtered.length}</span></div>
       {groups.length === 0 ? <p className="empty">No hay movimientos que coincidan con estos filtros.</p> : groups.map((group) => <div className="movement-group" key={group.date}><h3>{formatGroupDate(group.date)}</h3><ul>{group.transactions.map((item) => <li key={item.id}>
-        <button className="movement-main" onClick={() => edit(item)}><span className={`kind-icon ${item.kind}`} aria-hidden="true">{kindIcon(item.kind)}</span><span><strong>{item.concept}</strong><small>{movementContext(item, accountNames, categoryNames)} · {displayUser(item.createdBy)}</small>{item.note && <small className="movement-note">{item.note}</small>}</span><strong className={item.kind}>{movementAmount(item)}</strong></button>
+        <button className="movement-main" onClick={() => edit(item)}><span className={`kind-icon ${item.kind}`} aria-hidden="true">{kindIcon(item.kind)}</span><span><strong>{item.concept}{item.recurringRuleId && <span className="recurring-badge">Recurrente</span>}</strong><small>{movementContext(item, accountNames, categoryNames)} · {displayUser(item.createdBy)}</small>{item.note && <small className="movement-note">{item.note}</small>}</span><strong className={item.kind}>{movementAmount(item)}</strong></button>
         <button className="delete" onClick={() => void onDelete(item)} aria-label={`Eliminar ${item.concept}`}>Eliminar</button></li>)}</ul></div>)}
     </section>
   </div>
@@ -52,6 +52,7 @@ function MovementFilterPanel({ filters, accounts, categories, onChange, onClear 
     <label>Cuenta<select value={filters.accountId} onChange={(event) => onChange('accountId', event.target.value)}><option value="">Todas</option>{accounts.map((item) => <option key={item.id} value={item.id}>{item.name}{item.archivedAt ? ' (archivada)' : ''}</option>)}</select></label>
     <label>Categoría<select value={filters.categoryId} onChange={(event) => onChange('categoryId', event.target.value)}><option value="">Todas</option>{categories.map((item) => <option key={item.id} value={item.id}>{item.icon} {item.name}{item.archivedAt ? ' (archivada)' : ''}</option>)}</select></label>
     <label>Registrado por<select value={filters.userId} onChange={(event) => onChange('userId', event.target.value as MovementFilters['userId'])}><option value="all">Ambos</option><option value="david">David</option><option value="esther">Esther</option></select></label>
+    <label>Recurrencia<select value={filters.recurrence} onChange={(event) => onChange('recurrence', event.target.value as MovementFilters['recurrence'])}><option value="all">Todos</option><option value="recurring">Recurrentes</option><option value="single">No recurrentes</option></select></label>
     {filters.period === 'custom' && <><label>Desde<input type="date" value={filters.dateFrom} onChange={(event) => onChange('dateFrom', event.target.value)} /></label><label>Hasta<input type="date" value={filters.dateTo} onChange={(event) => onChange('dateTo', event.target.value)} /></label></>}
   </div><button className="text-action clear-filters" onClick={onClear}>Restablecer filtros</button></section>
 }

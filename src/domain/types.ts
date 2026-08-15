@@ -3,7 +3,8 @@ export type TransactionKind = 'income' | 'expense' | 'transfer' | 'adjustment'
 export type AccountType = 'checking' | 'savings' | 'investment' | 'cash'
 export type CategoryKind = 'income' | 'expense'
 export type OperationKind = 'create' | 'update' | 'delete'
-export type EntityType = 'transaction' | 'account' | 'category'
+export type EntityType = 'transaction' | 'account' | 'category' | 'recurringRule'
+export type RecurrenceFrequency = 'monthly' | 'quarterly' | 'annual'
 
 export interface SyncableRecord {
   id: string
@@ -41,9 +42,24 @@ export interface Transaction extends SyncableRecord {
   categoryId: string | null
   sourceAccountId: string | null
   destinationAccountId: string | null
+  recurringRuleId?: string | null
+  recurringOccurrenceDate?: string | null
 }
 
-export type SyncEntity = Transaction | Account | Category
+export interface RecurringRule extends SyncableRecord {
+  kind: 'income' | 'expense'
+  amountCents: number
+  concept: string
+  note: string
+  accountId: string
+  categoryId: string
+  frequency: RecurrenceFrequency
+  startDate: string
+  endDate: string | null
+  active: boolean
+}
+
+export type SyncEntity = Transaction | Account | Category | RecurringRule
 
 export interface SyncOperation {
   operationId: string
@@ -84,15 +100,19 @@ export interface TransactionInput {
   categoryId: string | null
   sourceAccountId: string | null
   destinationAccountId: string | null
+  recurringRuleId?: string | null
+  recurringOccurrenceDate?: string | null
 }
 
 export type AccountInput = Pick<Account, 'name' | 'type' | 'initialBalanceCents' | 'includeInNetWorth' | 'includeInLiquidity'>
 export type CategoryInput = Pick<Category, 'name' | 'kind' | 'icon'>
+export type RecurringRuleInput = Pick<RecurringRule, 'kind' | 'amountCents' | 'concept' | 'note' | 'accountId' | 'categoryId' | 'frequency' | 'startDate' | 'endDate'>
 
 export interface SyncRepository {
   listTransactions(): Promise<Transaction[]>
   listAccounts(): Promise<Account[]>
   listCategories(): Promise<Category[]>
+  listRecurringRules(): Promise<RecurringRule[]>
   createTransaction(input: TransactionInput, userId: UserId): Promise<Transaction>
   updateTransaction(id: string, input: TransactionInput): Promise<Transaction>
   deleteTransaction(id: string): Promise<void>
@@ -104,6 +124,11 @@ export interface SyncRepository {
   updateCategory(id: string, input: CategoryInput): Promise<Category>
   archiveCategory(id: string): Promise<void>
   restoreCategory(id: string): Promise<void>
+  createRecurringRule(input: RecurringRuleInput, userId: UserId): Promise<RecurringRule>
+  updateRecurringRule(id: string, input: RecurringRuleInput): Promise<RecurringRule>
+  setRecurringRuleActive(id: string, active: boolean): Promise<void>
+  createTransactionWithRecurrence(input: TransactionInput, recurrence: RecurringRuleInput, userId: UserId): Promise<Transaction>
+  materializeRecurringOccurrence(ruleId: string, date: string, userId: UserId): Promise<Transaction>
   pendingOperations(): Promise<SyncOperation[]>
   failedOperations(): Promise<SyncOperation[]>
   recoverFailedDeletions(): Promise<number>

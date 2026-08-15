@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { localDateOnly } from '../domain/dates'
 import { formatEuro, parseEuroToCents } from '../domain/money'
-import type { Account, Category, Transaction, TransactionInput, TransactionKind } from '../domain/types'
+import { nextRecurringDate } from '../domain/recurrence'
+import type { Account, Category, RecurrenceFrequency, RecurringRuleInput, Transaction, TransactionInput, TransactionKind } from '../domain/types'
 
 interface Props {
   transaction?: Transaction
@@ -9,7 +10,7 @@ interface Props {
   initialAccountId?: string
   accounts: Account[]
   categories: Category[]
-  onSave(input: TransactionInput): Promise<void>
+  onSave(input: TransactionInput, recurrence?: RecurringRuleInput): Promise<void>
   onCancel?(): void
 }
 
@@ -25,6 +26,10 @@ export function TransactionForm({ transaction, initialKind, initialAccountId, ac
   const [categoryId, setCategoryId] = useState(transaction?.categoryId ?? '')
   const [sourceAccountId, setSourceAccountId] = useState(transaction?.sourceAccountId ?? '')
   const [destinationAccountId, setDestinationAccountId] = useState(transaction?.destinationAccountId ?? '')
+  const [repeats, setRepeats] = useState(false)
+  const [frequency, setFrequency] = useState<RecurrenceFrequency>('monthly')
+  const [nextDate, setNextDate] = useState(nextRecurringDate(transaction?.date ?? localDateOnly(), 'monthly'))
+  const [endDate, setEndDate] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const matchingCategories = categories.filter((item) => !item.archivedAt && item.kind === kind)
@@ -46,11 +51,16 @@ export function TransactionForm({ transaction, initialKind, initialAccountId, ac
     try {
       const absoluteAmountCents = parseEuroToCents(amount)
       const amountCents = kind === 'adjustment' && adjustmentDirection === 'decrease' ? -absoluteAmountCents : absoluteAmountCents
-      await onSave({ kind, amountCents, concept: concept.trim(), note: note.trim(), date,
+      const transactionInput: TransactionInput = { kind, amountCents, concept: concept.trim(), note: note.trim(), date,
         accountId: kind === 'transfer' ? null : accountId || null,
         categoryId: kind === 'income' || kind === 'expense' ? categoryId || null : null,
         sourceAccountId: kind === 'transfer' ? sourceAccountId || null : null,
-        destinationAccountId: kind === 'transfer' ? destinationAccountId || null : null })
+        destinationAccountId: kind === 'transfer' ? destinationAccountId || null : null }
+      const recurrence = repeats && !transaction && (kind === 'income' || kind === 'expense') ? {
+        kind, amountCents, concept: concept.trim(), note: note.trim(), accountId, categoryId, frequency,
+        startDate: nextDate, endDate: endDate || null,
+      } satisfies RecurringRuleInput : undefined
+      if (recurrence) await onSave(transactionInput, recurrence); else await onSave(transactionInput)
       if (!transaction) { setAmount(''); setConcept(''); setNote('') }
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo guardar el movimiento.') }
     finally { setSaving(false) }
@@ -78,6 +88,15 @@ export function TransactionForm({ transaction, initialKind, initialAccountId, ac
       <option value="">Selecciona…</option>{matchingCategories.map((item) => <option key={item.id} value={item.id}>{item.icon} {item.name}</option>)}
     </select></label>}
     <label htmlFor="movement-date">Fecha<input id="movement-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} required /></label>
+    {!transaction && (kind === 'income' || kind === 'expense') && <div className="recurrence-fields">
+      <label className="check"><input type="checkbox" checked={repeats} onChange={(event) => { const checked = event.target.checked; setRepeats(checked); if (checked) setNextDate(nextRecurringDate(date, frequency)) }} /><span>Se repite</span></label>
+      {repeats && <div className="recurrence-options"><label>Frecuencia<select value={frequency} onChange={(event) => {
+        const value = event.target.value as RecurrenceFrequency; setFrequency(value); setNextDate(nextRecurringDate(date, value))
+      }}><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option><option value="annual">Anual</option></select></label>
+        <label>Próxima fecha<input type="date" value={nextDate} min={date} onChange={(event) => setNextDate(event.target.value)} required /></label>
+        <label>Fecha final opcional<input type="date" value={endDate} min={nextDate} onChange={(event) => setEndDate(event.target.value)} /></label>
+        <small>Este movimiento se registra ahora y las próximas ocurrencias se preparan sin duplicados.</small></div>}
+    </div>}
     <details className="optional-fields" open={Boolean(note)}><summary>Nota opcional</summary><label htmlFor="movement-note">Nota<textarea id="movement-note" value={note} onChange={(event) => setNote(event.target.value)} maxLength={500} rows={3} placeholder="Información adicional…" /></label></details>
     {error && <p className="error" role="alert">{error}</p>}
     <div className="form-actions">{onCancel && <button type="button" className="secondary" onClick={onCancel}>Cancelar</button>}

@@ -67,6 +67,18 @@ No vuelvas a ejecutar **Inicializar o cambiar clave** para esta migración: no e
 
 No ejecutes **Inicializar o cambiar clave**: `migratePhase3` conserva clave, sesiones y datos.
 
+### Migración a Fase 4
+
+La automatización autorizada puede ejecutar `migratePhase4` desde el proyecto y después `npm run apps-script:deploy`; el segundo comando sube los archivos y promueve la implementación existente sin cambiar su URL. Si se realiza manualmente:
+
+1. Sustituye `Code.gs` por la versión de Fase 4 y guarda el proyecto.
+2. Recarga la hoja y ejecuta **Hogar Finanzas → Migrar a Fase 4**.
+3. Comprueba `schemaVersion: 4`, `transactionColumns: 18` y `recurringRuleColumns: 17`. La migración añade los vínculos recurrentes a `Transactions` y amplía `RecurringRules` sin alterar filas previas.
+4. Crea una versión nueva en la misma implementación para conservar la URL `/exec`.
+5. Confirma que el health check devuelve `4.0.0-phase4` antes de crear recurrencias desde los iPhone.
+
+No ejecutes **Inicializar o cambiar clave**: `migratePhase4` conserva la clave, las sesiones y todos los datos existentes.
+
 ## Diagnóstico seguro
 
 - `not_initialized`: faltó ejecutar el inicializador.

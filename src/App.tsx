@@ -5,22 +5,24 @@ import { CategoryManager } from './components/CategoryManager'
 import { HomeView } from './components/HomeView'
 import { MovementsView } from './components/MovementsView'
 import { PlaceholderView } from './components/PlaceholderView'
+import { RecurringManager } from './components/RecurringManager'
 import { LocalFinanceRepository } from './data/localFinanceRepository'
 import { calculatePortfolio } from './domain/finance'
-import type { Account, Category, Session, Transaction, TransactionInput, TransactionKind, UserId } from './domain/types'
+import type { Account, Category, RecurringRule, RecurringRuleInput, Session, Transaction, TransactionInput, TransactionKind, UserId } from './domain/types'
 import { AppsScriptClient } from './services/appsScriptClient'
 import { SyncEngine } from './services/syncEngine'
 import './styles.css'
 
 const repository = new LocalFinanceRepository()
 type SyncState = 'idle' | 'syncing' | 'ok' | 'error'
-type Page = MainTab | 'settings' | 'accounts' | 'categories'
+type Page = MainTab | 'settings' | 'accounts' | 'categories' | 'recurring'
 interface MovementIntent { key: number; mode: 'list' | 'add'; initialKind?: TransactionKind; initialAccountId?: string }
 
 export default function App() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [recurringRules, setRecurringRules] = useState<RecurringRule[]>([])
   const [session, setSession] = useState<Session | null>(null)
   const [page, setPage] = useState<Page>('home')
   const [movementIntent, setMovementIntent] = useState<MovementIntent>({ key: 0, mode: 'list' })
@@ -31,10 +33,10 @@ export default function App() {
   const [online, setOnline] = useState(navigator.onLine)
 
   const refreshLocal = useCallback(async () => {
-    const [items, accountItems, categoryItems, pending, failed] = await Promise.all([
-      repository.listTransactions(), repository.listAccounts(), repository.listCategories(), repository.pendingOperations(), repository.failedOperations(),
+    const [items, accountItems, categoryItems, ruleItems, pending, failed] = await Promise.all([
+      repository.listTransactions(), repository.listAccounts(), repository.listCategories(), repository.listRecurringRules(), repository.pendingOperations(), repository.failedOperations(),
     ])
-    setTransactions(items); setAccounts(accountItems); setCategories(categoryItems); setPendingCount(pending.length)
+    setTransactions(items); setAccounts(accountItems); setCategories(categoryItems); setRecurringRules(ruleItems); setPendingCount(pending.length)
     if (failed.length > 0) { setSyncState('error'); setSyncMessage(`${failed.length} cambio${failed.length === 1 ? '' : 's'} necesita revisión`) }
   }, [])
 
@@ -58,7 +60,7 @@ export default function App() {
   }, [session, synchronize])
 
   async function afterLocalChange(action: () => Promise<unknown>) { await action(); await refreshLocal(); if (navigator.onLine) void synchronize() }
-  async function save(transaction: Transaction | undefined, input: TransactionInput) { if (!session) return; await afterLocalChange(() => transaction ? repository.updateTransaction(transaction.id, input) : repository.createTransaction(input, session.userId)) }
+  async function save(transaction: Transaction | undefined, input: TransactionInput, recurrence?: RecurringRuleInput) { if (!session) return; await afterLocalChange(() => transaction ? repository.updateTransaction(transaction.id, input) : recurrence ? repository.createTransactionWithRecurrence(input, recurrence, session.userId) : repository.createTransaction(input, session.userId)) }
   async function remove(transaction: Transaction) { if (window.confirm(`¿Eliminar “${transaction.concept}”?`)) await afterLocalChange(() => repository.deleteTransaction(transaction.id)) }
   async function logout() { await repository.setSession(null); setSession(null); setSyncMessage('Solo en este dispositivo') }
 
@@ -71,7 +73,7 @@ export default function App() {
     setMovementIntent((current) => ({ key: current.key + 1, mode, ...options })); setPage('movements')
   }
   return <div className="app-shell">
-    <header className="topbar">{isMainTab(page) ? <div><p className="eyebrow">Casa compartida</p><h1>{pageTitle(page)}</h1></div> : <div className="secondary-heading"><button className="back-button" onClick={() => setPage(page === 'accounts' || page === 'categories' ? 'settings' : 'home')} aria-label="Volver">‹</button><div><p className="eyebrow">Configuración</p><h1>{pageTitle(page)}</h1></div></div>}
+    <header className="topbar">{isMainTab(page) ? <div><p className="eyebrow">Casa compartida</p><h1>{pageTitle(page)}</h1></div> : <div className="secondary-heading"><button className="back-button" onClick={() => setPage(page === 'accounts' || page === 'categories' || page === 'recurring' ? 'settings' : 'home')} aria-label="Volver">‹</button><div><p className="eyebrow">Configuración</p><h1>{pageTitle(page)}</h1></div></div>}
       <div className="topbar-actions"><button className="settings-button" onClick={() => setPage('settings')} aria-label="Abrir configuración">⚙</button><button className="avatar" onClick={logout} aria-label={`Cerrar sesión de ${session.userId}`}>{session.userId[0].toUpperCase()}</button></div></header>
     <main>
       <button className={`sync-banner ${syncState}`} onClick={() => void synchronize()} disabled={syncState === 'syncing'}><span aria-hidden="true">{online ? '●' : '○'}</span><span>{syncMessage}{pendingCount ? ` · ${pendingCount} pendientes` : ''}</span><span aria-hidden="true">↻</span></button>
@@ -80,7 +82,7 @@ export default function App() {
       {page === 'plan' && <PlaceholderView area="Plan mensual" phase={5} description="Aquí aparecerán los ingresos y gastos previstos, presupuestos y la proyección de final de mes." />}
       {page === 'goals' && <PlaceholderView area="Objetivos" phase={6} description="Aquí podréis reservar virtualmente dinero para viajes, ahorro u otras metas sin alterar el patrimonio." />}
       {page === 'analysis' && <PlaceholderView area="Análisis" phase={8} description="Aquí se mostrarán tendencias mensuales, categorías y evolución del patrimonio." />}
-      {page === 'settings' && <ConfigurationHome session={session} pendingCount={pendingCount} onAccounts={() => setPage('accounts')} onCategories={() => setPage('categories')} onSync={() => void synchronize()} onLogout={() => void logout()} />}
+      {page === 'settings' && <ConfigurationHome session={session} pendingCount={pendingCount} onAccounts={() => setPage('accounts')} onCategories={() => setPage('categories')} onRecurring={() => setPage('recurring')} onSync={() => void synchronize()} onLogout={() => void logout()} />}
       {page === 'accounts' && <AccountManager accounts={accounts} balances={portfolio.balances}
         onCreate={(input) => afterLocalChange(() => repository.createAccount(input, session.userId))}
         onUpdate={(id, input) => afterLocalChange(() => repository.updateAccount(id, input))}
@@ -92,14 +94,19 @@ export default function App() {
         onUpdate={(id, input) => afterLocalChange(() => repository.updateCategory(id, input))}
         onArchive={(id) => afterLocalChange(() => repository.archiveCategory(id))}
         onRestore={(id) => afterLocalChange(() => repository.restoreCategory(id))} />}
+      {page === 'recurring' && <RecurringManager rules={recurringRules} transactions={transactions} accounts={accounts} categories={categories}
+        onCreate={(input) => afterLocalChange(() => repository.createRecurringRule(input, session.userId))}
+        onUpdate={(id, input) => afterLocalChange(() => repository.updateRecurringRule(id, input))}
+        onSetActive={(id, active) => afterLocalChange(() => repository.setRecurringRuleActive(id, active))}
+        onMaterialize={(id, date) => afterLocalChange(() => repository.materializeRecurringOccurrence(id, date, session.userId))} />}
     </main><BottomNavigation active={activeTab} onSelect={(tab) => { if (tab === 'movements') openMovements('list'); else setPage(tab) }} /><footer>Hogar Finanzas · datos disponibles sin conexión</footer>
   </div>
 }
 
-function ConfigurationHome({ session, pendingCount, onAccounts, onCategories, onSync, onLogout }: {
-  session: Session; pendingCount: number; onAccounts(): void; onCategories(): void; onSync(): void; onLogout(): void
+function ConfigurationHome({ session, pendingCount, onAccounts, onCategories, onRecurring, onSync, onLogout }: {
+  session: Session; pendingCount: number; onAccounts(): void; onCategories(): void; onRecurring(): void; onSync(): void; onLogout(): void
 }) {
-  return <section className="settings-home"><div className="settings-links"><button className="card" onClick={onAccounts}><strong>Cuentas</strong><span>Crear, editar, archivar o reactivar</span></button><button className="card" onClick={onCategories}><strong>Categorías</strong><span>Organizar ingresos y gastos</span></button></div>
+  return <section className="settings-home"><div className="settings-links"><button className="card" onClick={onAccounts}><strong>Cuentas</strong><span>Crear, editar, archivar o reactivar</span></button><button className="card" onClick={onCategories}><strong>Categorías</strong><span>Organizar ingresos y gastos</span></button><button className="card" onClick={onRecurring}><strong>Recurrentes</strong><span>Programar y registrar próximas ocurrencias</span></button></div>
     <div className="card session-card"><h2>Datos y sincronización</h2><p>Sesión iniciada como <strong>{session.userId === 'david' ? 'David' : 'Esther'}</strong>.</p><p>{pendingCount ? `${pendingCount} cambios pendientes.` : 'No hay cambios pendientes.'}</p><div className="form-actions"><button className="secondary" onClick={onLogout}>Cerrar sesión</button><button onClick={onSync}>Sincronizar ahora</button></div></div></section>
 }
 
@@ -116,4 +123,4 @@ function Login({ onAuthenticated }: { onAuthenticated(session: Session): void })
 }
 
 function isMainTab(page: Page): page is MainTab { return ['home', 'movements', 'plan', 'goals', 'analysis'].includes(page) }
-function pageTitle(page: Page): string { return page === 'home' ? 'Inicio' : page === 'movements' ? 'Movimientos' : page === 'plan' ? 'Plan' : page === 'goals' ? 'Objetivos' : page === 'analysis' ? 'Análisis' : page === 'accounts' ? 'Cuentas' : page === 'categories' ? 'Categorías' : 'Ajustes' }
+function pageTitle(page: Page): string { return page === 'home' ? 'Inicio' : page === 'movements' ? 'Movimientos' : page === 'plan' ? 'Plan' : page === 'goals' ? 'Objetivos' : page === 'analysis' ? 'Análisis' : page === 'accounts' ? 'Cuentas' : page === 'categories' ? 'Categorías' : page === 'recurring' ? 'Recurrentes' : 'Ajustes' }

@@ -24,7 +24,7 @@ React UI
 
 La UI siempre lee IndexedDB y escribe localmente antes de intentar red. El dominio no importa React, IndexedDB ni Google. Repositorio y transporte son sustituibles en tests.
 
-## 3. Modelo hasta Fase 3
+## 3. Modelo hasta Fase 4
 
 ```ts
 type UserId = 'david' | 'esther'
@@ -47,6 +47,22 @@ interface Transaction {
   categoryId: string | null
   sourceAccountId: string | null
   destinationAccountId: string | null
+  recurringRuleId: string | null
+  recurringOccurrenceDate: string | null
+}
+
+interface RecurringRule {
+  // metadatos SyncableRecord
+  kind: 'income' | 'expense'
+  amountCents: number
+  concept: string
+  note: string
+  accountId: string
+  categoryId: string
+  frequency: 'monthly' | 'quarterly' | 'annual'
+  startDate: string
+  endDate: string | null
+  active: boolean
 }
 
 interface Account {
@@ -74,13 +90,16 @@ interface Category {
 - La eliminación asigna `deletedAt`; no borra la fila compartida.
 - Cuentas y categorías con histórico se archivan mediante `archivedAt`; no se eliminan. Reactivar asigna `archivedAt = null` como una actualización sincronizable normal.
 - `note` es texto opcional de hasta 500 caracteres. Los movimientos anteriores al esquema 3 se normalizan con nota vacía.
+- Una ocurrencia materializada enlaza regla y fecha. Su UUID se deriva determinísticamente de ambas para que dos clientes creen el mismo registro y no dos duplicados.
+- Las reglas pausadas conservan su historial y pueden reactivarse. El calendario mensual conserva el día ancla y lo limita al último día válido del mes.
 
 ## 4. IndexedDB
 
-Base `hogar-finanzas`, versión 2:
+Base `hogar-finanzas`, versión 3:
 
 - `transactions`, clave `id`, incluidos tombstones recibidos;
 - `accounts` y `categories`, clave `id`, incluidos registros archivados;
+- `recurringRules`, clave `id`, incluidas reglas pausadas y tombstones recibidos;
 - `outbox`, clave `operationId`, operaciones pendientes y errores;
 - `meta`, clave `key`, para cursor, sesión y URL pública.
 
@@ -101,6 +120,7 @@ El POST usa `text/plain;charset=utf-8`, sigue la redirección de ContentService 
 ### Idempotencia y conflictos
 
 - `SyncOperations` conserva cada `operationId` y resultado; un reintento devuelve lo mismo.
+- Las ocurrencias recurrentes añaden idempotencia semántica: una segunda alta con el mismo UUID de regla/fecha devuelve el registro canónico ya aceptado.
 - `LockService.getScriptLock()` serializa el lote y contador global.
 - Cada mutación aceptada incrementa `version` y `changeSequence`.
 - En edición concurrente gana el último cambio aceptado por orden del lock.
@@ -114,7 +134,7 @@ El POST usa `text/plain;charset=utf-8`, sigue la redirección de ContentService 
 
 ## 6. Google Sheets y Apps Script
 
-El inicializador idempotente crea todas las hojas. En Fase 3 son funcionales `Meta`, `Users`, `Accounts`, `Categories`, `Transactions` y `SyncOperations`; el resto continúa reservado. `migratePhase3` añade la columna `note`, conserva filas y mantiene el catálogo inicial de forma idempotente.
+El inicializador idempotente crea todas las hojas. En Fase 4 son funcionales `Meta`, `Users`, `Accounts`, `Categories`, `Transactions`, `RecurringRules` y `SyncOperations`; el resto continúa reservado. `migratePhase4` amplía `Transactions`, activa el esquema de `RecurringRules`, conserva filas y mantiene el catálogo inicial de forma idempotente.
 
 Apps Script revalida identidad, UUIDs, fechas, concepto e importe. Las operaciones están protegidas por Script Lock.
 
@@ -134,8 +154,9 @@ Apps Script revalida identidad, UUIDs, fechas, concepto e importe. Las operacion
 - Workbox precachea el app shell y proporciona fallback de navegación.
 - Actualización avisada antes de recargar; sin dependencia de Background Sync.
 - Mobile-first, safe areas, modo oscuro, zoom/tipos dinámicos, etiquetas y mensajes accesibles.
-- La Fase 3 añade barra inferior de cinco áreas, Inicio, configuración secundaria y consulta de movimientos agrupada por día con búsqueda y filtros. Plan, Objetivos y Análisis son destinos informativos hasta sus fases funcionales.
-- La búsqueda y los filtros se calculan localmente sobre IndexedDB; no generan consultas remotas. Incluyen periodo, tipo, cuenta, categoría y miembro. El filtro recurrente se añadirá con el modelo de Fase 4.
+- La barra inferior mantiene cinco áreas. Plan, Objetivos y Análisis son destinos informativos hasta sus fases funcionales.
+- La búsqueda y los filtros se calculan localmente sobre IndexedDB; no generan consultas remotas. Incluyen periodo, tipo, cuenta, categoría, miembro y carácter recurrente.
+- Ajustes → Recurrentes permite crear, editar, pausar/reactivar y materializar próximas ocurrencias. Esta vista no calcula presupuestos ni proyecciones de Fase 5.
 
 ## 9. Build y CI
 
@@ -153,7 +174,7 @@ npm run build
 
 ## 10. Pruebas y aceptación
 
-Automatización: céntimos; saldos, patrimonio, liquidez, transferencias y ajustes; archivado/reactivación; búsqueda, filtros y agrupación; notas; navegación accesible; tombstones; persistencia y cola por entidad; cursor y sesión; router Apps Script; manifest/service worker.
+Automatización: céntimos; saldos, patrimonio, liquidez, transferencias y ajustes; archivado/reactivación; búsqueda, filtros y agrupación; notas; calendarios recurrentes; UUID de ocurrencia; idempotencia local y remota; navegación accesible; tombstones; persistencia y cola por entidad; cursor y sesión; router Apps Script; manifest/service worker.
 
 Aceptación real obligatoria:
 
@@ -167,11 +188,10 @@ Si Chromium o Safari no pueden leer la respuesta redirigida por política CORS, 
 
 ## 11. Fases futuras
 
-1. Fase 4: recurrencias.
-2. Fase 5: presupuestos y plan.
-3. Fase 6: objetivos y patrimonio.
-4. Fase 7: cierres mensuales.
-5. Fase 8: análisis.
-6. Fase 9: robustez, accesibilidad, exportación y copias.
+1. Fase 5: presupuestos y plan.
+2. Fase 6: objetivos y patrimonio.
+3. Fase 7: cierres mensuales.
+4. Fase 8: análisis.
+5. Fase 9: robustez, accesibilidad, exportación y copias.
 
 No se anticipan capacidades futuras.

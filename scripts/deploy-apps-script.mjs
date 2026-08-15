@@ -4,11 +4,14 @@ import { spawnSync } from 'node:child_process'
 const deploymentId = 'AKfycbxmPu1N3gNT5cDvhtdWSNOzKfmHcYLFpLYErFpBVZ4FGuyEYX0xfOX2pxEPMkEJtkA8'
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 const description = process.argv[2] ?? `version${packageJson.version}`
-const executable = process.platform === 'win32' ? 'npx.cmd' : 'npx'
+if (!/^[A-Za-z0-9._-]+$/.test(description)) throw new Error('La descripción de la versión contiene caracteres no permitidos.')
+const windows = process.platform === 'win32'
+const executable = windows ? process.env.ComSpec ?? 'C:\\Windows\\System32\\cmd.exe' : 'npx'
 const claspPrefix = ['--yes', '@google/clasp@3.3.0']
 
 function run(args, capture = false) {
-  const result = spawnSync(executable, [...claspPrefix, ...args], {
+  const commandArgs = windows ? ['/d', '/s', '/c', 'npx.cmd', ...claspPrefix, ...args] : [...claspPrefix, ...args]
+  const result = spawnSync(executable, commandArgs, {
     cwd: new URL('..', import.meta.url),
     encoding: 'utf8',
     stdio: capture ? 'pipe' : 'inherit',

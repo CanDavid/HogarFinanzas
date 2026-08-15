@@ -60,4 +60,17 @@ describe('TransactionForm', () => {
     expect(screen.getByRole('button', { name: '− Restar saldo' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByLabelText('Importe')).toHaveValue('10.50')
   })
+
+  it('creates the current movement together with a future recurrence', async () => {
+    const save = vi.fn().mockResolvedValue(undefined)
+    render(<TransactionForm accounts={accounts} categories={categories} onSave={save} />)
+    fireEvent.change(screen.getByLabelText('Importe'), { target: { value: '65,00' } })
+    fireEvent.change(screen.getByLabelText('Concepto'), { target: { value: 'Internet' } })
+    fireEvent.click(screen.getByLabelText('Se repite'))
+    fireEvent.change(screen.getByLabelText('Frecuencia'), { target: { value: 'quarterly' } })
+    fireEvent.change(screen.getByLabelText('Próxima fecha'), { target: { value: '2026-11-15' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar movimiento' }))
+    await vi.waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ kind: 'expense', amountCents: 6500 }),
+      expect.objectContaining({ frequency: 'quarterly', startDate: '2026-11-15', amountCents: 6500 })))
+  })
 })

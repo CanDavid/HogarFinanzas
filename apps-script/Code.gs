@@ -1,6 +1,6 @@
 /* global ContentService, LockService, PropertiesService, Session, SpreadsheetApp, Utilities */
 
-const APP_VERSION = '3.0.1-phase3';
+const APP_VERSION = '4.0.0-phase4';
 const SESSION_DAYS = 30;
 const ALLOWED_USERS = ['david', 'esther'];
 const SHEETS = {
@@ -8,8 +8,8 @@ const SHEETS = {
   Users: ['id', 'displayName', 'active'],
   Accounts: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'name', 'type', 'initialBalanceCents', 'includeInNetWorth', 'includeInLiquidity', 'archivedAt'],
   Categories: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'name', 'kind', 'icon', 'archivedAt'],
-  Transactions: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'kind', 'amountCents', 'concept', 'date', 'accountId', 'categoryId', 'sourceAccountId', 'destinationAccountId', 'note'],
-  RecurringRules: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'],
+  Transactions: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'kind', 'amountCents', 'concept', 'date', 'accountId', 'categoryId', 'sourceAccountId', 'destinationAccountId', 'note', 'recurringRuleId', 'recurringOccurrenceDate'],
+  RecurringRules: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'kind', 'amountCents', 'concept', 'note', 'accountId', 'categoryId', 'frequency', 'startDate', 'endDate', 'active'],
   Budgets: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'],
   Goals: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'],
   GoalAllocations: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'],
@@ -20,7 +20,7 @@ const SHEETS = {
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Hogar Finanzas')
     .addItem('Inicializar o cambiar clave', 'initializeFromPrompt')
-    .addItem('Migrar a Fase 3', 'migratePhase3')
+    .addItem('Migrar a Fase 4', 'migratePhase4')
     .addToUi();
 }
 
@@ -60,7 +60,7 @@ function initializeProject(householdKey) {
   if (!spreadsheet) throw new Error('Vincula este script a una hoja de cálculo.');
   Object.keys(SHEETS).forEach(function (name) { ensureSheet_(spreadsheet, name, SHEETS[name]); });
   seedUsers_(spreadsheet);
-  setMeta_(spreadsheet, 'schemaVersion', '3');
+  setMeta_(spreadsheet, 'schemaVersion', '4');
   if (getMeta_(spreadsheet, 'changeSequence') === null) setMeta_(spreadsheet, 'changeSequence', '0');
   seedCategories_(spreadsheet);
 
@@ -95,6 +95,17 @@ function migratePhase3() {
   seedUsers_(spreadsheet);
   seedCategories_(spreadsheet);
   return { schemaVersion: 3, transactionColumns: SHEETS.Transactions.length };
+}
+
+function migratePhase4() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  if (!spreadsheet) throw new Error('Vincula este script a una hoja de cálculo.');
+  Object.keys(SHEETS).forEach(function (name) { ensureSheet_(spreadsheet, name, SHEETS[name]); });
+  if (getMeta_(spreadsheet, 'changeSequence') === null) setMeta_(spreadsheet, 'changeSequence', '0');
+  setMeta_(spreadsheet, 'schemaVersion', '4');
+  seedUsers_(spreadsheet);
+  seedCategories_(spreadsheet);
+  return { schemaVersion: 4, transactionColumns: SHEETS.Transactions.length, recurringRuleColumns: SHEETS.RecurringRules.length };
 }
 
 function login_(request) {
@@ -146,9 +157,20 @@ function applyOperation_(spreadsheet, operation, userId) {
   const found = findRowObject_(sheet, 'id', operation.recordId);
   let record;
   if (operation.kind === 'create') {
-    if (found) throw apiError_('record_exists', 'Ya existe un registro con ese identificador.');
-    record = serverRecord_(entityType, operation.payload, 1, nextSequence_(spreadsheet), userId, null);
-    appendObject_(sheet, SHEETS[sheetName], record);
+    if (found && entityType === 'transaction' && operation.payload.recurringRuleId && operation.payload.recurringOccurrenceDate) {
+      const currentOccurrence = normalizeEntity_(entityType, found.value);
+      if (currentOccurrence.deletedAt) throw apiError_('record_deleted', 'La ocurrencia fue eliminada y no puede restaurarse.');
+      if (currentOccurrence.recurringRuleId !== operation.payload.recurringRuleId || currentOccurrence.recurringOccurrenceDate !== operation.payload.recurringOccurrenceDate) throw apiError_('record_exists', 'Ya existe otro registro con ese identificador.');
+      record = currentOccurrence;
+    } else {
+      if (found) throw apiError_('record_exists', 'Ya existe un registro con ese identificador.');
+      if (entityType === 'transaction' && operation.payload.recurringRuleId) {
+        const duplicate = findRecurringOccurrence_(sheet, operation.payload.recurringRuleId, operation.payload.recurringOccurrenceDate);
+        if (duplicate) throw apiError_('duplicate_occurrence', 'Esta ocurrencia ya fue registrada.');
+      }
+      record = serverRecord_(entityType, operation.payload, 1, nextSequence_(spreadsheet), userId, null);
+      appendObject_(sheet, SHEETS[sheetName], record);
+    }
   } else if (!found) {
     if (operation.kind !== 'delete') throw apiError_('record_missing', 'El registro ya no existe.');
     record = serverRecord_(entityType, operation.payload, 1, nextSequence_(spreadsheet), userId, new Date().toISOString());
@@ -177,7 +199,7 @@ function applyOperation_(spreadsheet, operation, userId) {
 
 function pullChanges_(cursor, existingSpreadsheet) {
   const spreadsheet = existingSpreadsheet || openSpreadsheet_();
-  const changes = ['transaction', 'account', 'category'].reduce(function (all, entityType) {
+  const changes = ['transaction', 'account', 'category', 'recurringRule'].reduce(function (all, entityType) {
     const sheetName = entitySheet_(entityType);
     const rows = readObjects_(spreadsheet.getSheetByName(sheetName), SHEETS[sheetName]).map(function (row) { return normalizeEntity_(entityType, row); });
     return all.concat(rows.filter(function (record) { return record.changeSequence > cursor; }).map(function (record) { return { entityType: entityType, record: record }; }));
@@ -193,12 +215,13 @@ function validateOperation_(spreadsheet, operation, userId, entityType) {
   if (operation.kind === 'create' && record.createdBy !== userId) throw apiError_('invalid_owner', 'El creador no coincide con la sesión.');
   if (entityType === 'transaction') validateTransaction_(spreadsheet, record, !operation.entityType || !Object.prototype.hasOwnProperty.call(record, 'accountId'));
   else if (entityType === 'account') validateAccount_(record);
-  else validateCategory_(record);
+  else if (entityType === 'category') validateCategory_(record);
+  else validateRecurringRule_(spreadsheet, record);
 }
 
 function validateOperationEnvelope_(operation, entityType) {
   if (!operation || typeof operation.operationId !== 'string' || !operation.operationId) throw apiError_('invalid_operation', 'Falta operationId.');
-  if (['transaction', 'account', 'category'].indexOf(entityType) === -1) throw apiError_('invalid_operation', 'Entidad inválida.');
+  if (['transaction', 'account', 'category', 'recurringRule'].indexOf(entityType) === -1) throw apiError_('invalid_operation', 'Entidad inválida.');
   if (['create', 'update', 'delete'].indexOf(operation.kind) === -1) throw apiError_('invalid_operation', 'Tipo de operación inválido.');
   if (operation.recordId !== (operation.payload && operation.payload.id)) throw apiError_('invalid_record', 'El identificador no coincide.');
 }
@@ -223,6 +246,15 @@ function validateTransaction_(spreadsheet, record, legacy) {
     const category = requireActive_(spreadsheet, 'Categories', record.categoryId);
     if (String(category.kind) !== record.kind) throw apiError_('invalid_category', 'La categoría no coincide con el movimiento.');
   }
+  const hasRule = Boolean(record.recurringRuleId);
+  const hasOccurrence = Boolean(record.recurringOccurrenceDate);
+  if (hasRule !== hasOccurrence) throw apiError_('invalid_recurrence', 'El vínculo recurrente está incompleto.');
+  if (hasRule) {
+    if (record.kind !== 'income' && record.kind !== 'expense') throw apiError_('invalid_recurrence', 'Solo ingresos y gastos pueden ser recurrentes.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(record.recurringOccurrenceDate)) throw apiError_('invalid_recurrence', 'Fecha recurrente no válida.');
+    const rule = findRowObject_(spreadsheet.getSheetByName('RecurringRules'), 'id', record.recurringRuleId);
+    if (!rule || rule.value.deletedAt) throw apiError_('invalid_recurrence', 'La regla recurrente no existe.');
+  }
 }
 
 function validateAccount_(record) {
@@ -234,6 +266,20 @@ function validateAccount_(record) {
 function validateCategory_(record) {
   if (!record || typeof record.name !== 'string' || !record.name.trim() || record.name.length > 60) throw apiError_('invalid_category', 'Nombre de categoría no válido.');
   if (['income', 'expense'].indexOf(record.kind) === -1 || typeof record.icon !== 'string' || !record.icon.trim()) throw apiError_('invalid_category', 'Categoría no válida.');
+}
+
+function validateRecurringRule_(spreadsheet, record) {
+  if (!record || ['income', 'expense'].indexOf(record.kind) === -1) throw apiError_('invalid_recurrence', 'Tipo recurrente no válido.');
+  if (!Number.isSafeInteger(record.amountCents) || record.amountCents <= 0) throw apiError_('invalid_amount', 'Importe recurrente no válido.');
+  if (typeof record.concept !== 'string' || !record.concept.trim() || record.concept.length > 120) throw apiError_('invalid_concept', 'Concepto recurrente no válido.');
+  if (typeof record.note !== 'string' || record.note.length > 500) throw apiError_('invalid_note', 'Nota no válida.');
+  if (['monthly', 'quarterly', 'annual'].indexOf(record.frequency) === -1) throw apiError_('invalid_recurrence', 'Frecuencia no válida.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(record.startDate) || (record.endDate && (!/^\d{4}-\d{2}-\d{2}$/.test(record.endDate) || record.endDate < record.startDate))) throw apiError_('invalid_date', 'Fechas recurrentes no válidas.');
+  const account = record.active ? requireActive_(spreadsheet, 'Accounts', record.accountId) : findRowObject_(spreadsheet.getSheetByName('Accounts'), 'id', record.accountId);
+  const category = record.active ? requireActive_(spreadsheet, 'Categories', record.categoryId) : findRowObject_(spreadsheet.getSheetByName('Categories'), 'id', record.categoryId);
+  const accountValue = account && account.value ? account.value : account;
+  const categoryValue = category && category.value ? category.value : category;
+  if (!accountValue || accountValue.deletedAt || !categoryValue || categoryValue.deletedAt || String(categoryValue.kind) !== record.kind) throw apiError_('invalid_category', 'La categoría no coincide con la recurrencia.');
 }
 
 function requireActive_(spreadsheet, sheetName, id) {
@@ -255,12 +301,16 @@ function serverRecord_(entityType, payload, version, sequence, createdBy, delete
   if (entityType === 'transaction') return Object.assign(common, {
     kind: payload.kind, amountCents: payload.amountCents, concept: payload.concept.trim(), date: payload.date,
     accountId: payload.accountId || '', categoryId: payload.categoryId || '', sourceAccountId: payload.sourceAccountId || '', destinationAccountId: payload.destinationAccountId || '', note: String(payload.note || '').trim(),
+    recurringRuleId: payload.recurringRuleId || '', recurringOccurrenceDate: payload.recurringOccurrenceDate || '',
   });
   if (entityType === 'account') return Object.assign(common, {
     name: payload.name.trim(), type: payload.type, initialBalanceCents: payload.initialBalanceCents,
     includeInNetWorth: Boolean(payload.includeInNetWorth), includeInLiquidity: Boolean(payload.includeInLiquidity), archivedAt: payload.archivedAt || '',
   });
-  return Object.assign(common, { name: payload.name.trim(), kind: payload.kind, icon: payload.icon.trim(), archivedAt: payload.archivedAt || '' });
+  if (entityType === 'category') return Object.assign(common, { name: payload.name.trim(), kind: payload.kind, icon: payload.icon.trim(), archivedAt: payload.archivedAt || '' });
+  return Object.assign(common, { kind: payload.kind, amountCents: payload.amountCents, concept: payload.concept.trim(), note: payload.note.trim(),
+    accountId: payload.accountId, categoryId: payload.categoryId, frequency: payload.frequency, startDate: payload.startDate,
+    endDate: payload.endDate || '', active: Boolean(payload.active) });
 }
 
 function initializeSheetHeaders_(sheet, headers) {
@@ -321,6 +371,14 @@ function findRowObject_(sheet, key, value) {
   return null;
 }
 
+function findRecurringOccurrence_(sheet, ruleId, date) {
+  const rows = readObjects_(sheet, SHEETS.Transactions);
+  for (let index = 0; index < rows.length; index += 1) {
+    if (String(rows[index].recurringRuleId) === String(ruleId) && normalizeDateCell_(rows[index].recurringOccurrenceDate) === String(date)) return rows[index];
+  }
+  return null;
+}
+
 function appendObject_(sheet, headers, object) {
   sheet.appendRow(headers.map(function (header) { return sheetValue_(object[header]); }));
 }
@@ -339,6 +397,7 @@ function normalizeTransaction_(row) {
     amountCents: Number(row.amountCents), concept: String(row.concept), date: normalizeDateCell_(row.date),
     accountId: row.accountId ? String(row.accountId) : null, categoryId: row.categoryId ? String(row.categoryId) : null,
     sourceAccountId: row.sourceAccountId ? String(row.sourceAccountId) : null, destinationAccountId: row.destinationAccountId ? String(row.destinationAccountId) : null, note: row.note ? String(row.note) : '',
+    recurringRuleId: row.recurringRuleId ? String(row.recurringRuleId) : null, recurringOccurrenceDate: row.recurringOccurrenceDate ? normalizeDateCell_(row.recurringOccurrenceDate) : null,
   };
 }
 
@@ -359,8 +418,18 @@ function normalizeCategory_(row) {
   };
 }
 
-function normalizeEntity_(entityType, row) { return entityType === 'transaction' ? normalizeTransaction_(row) : entityType === 'account' ? normalizeAccount_(row) : normalizeCategory_(row); }
-function entitySheet_(entityType) { return entityType === 'transaction' ? 'Transactions' : entityType === 'account' ? 'Accounts' : 'Categories'; }
+function normalizeRecurringRule_(row) {
+  return {
+    id: String(row.id), createdAt: normalizeTimestampCell_(row.createdAt), updatedAt: normalizeTimestampCell_(row.updatedAt),
+    deletedAt: row.deletedAt ? normalizeTimestampCell_(row.deletedAt) : null, createdBy: String(row.createdBy), version: Number(row.version), changeSequence: Number(row.changeSequence),
+    kind: String(row.kind), amountCents: Number(row.amountCents), concept: String(row.concept), note: row.note ? String(row.note) : '',
+    accountId: String(row.accountId), categoryId: String(row.categoryId), frequency: String(row.frequency), startDate: normalizeDateCell_(row.startDate),
+    endDate: row.endDate ? normalizeDateCell_(row.endDate) : null, active: toBoolean_(row.active),
+  };
+}
+
+function normalizeEntity_(entityType, row) { return entityType === 'transaction' ? normalizeTransaction_(row) : entityType === 'account' ? normalizeAccount_(row) : entityType === 'category' ? normalizeCategory_(row) : normalizeRecurringRule_(row); }
+function entitySheet_(entityType) { return entityType === 'transaction' ? 'Transactions' : entityType === 'account' ? 'Accounts' : entityType === 'category' ? 'Categories' : 'RecurringRules'; }
 function toBoolean_(value) { return value === true || String(value).toLowerCase() === 'true'; }
 
 function normalizeTimestampCell_(value) {

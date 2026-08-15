@@ -12,7 +12,7 @@ const categories: Category[] = [
   { ...sync, id: 'salary', createdBy: 'david', name: 'Nómina', kind: 'income', icon: '●', archivedAt: null },
 ]
 const transactions: Transaction[] = [
-  movement('expense-1', 'expense', '2026-08-15', 'david', { concept: 'Supermercado', note: 'Cena de aniversario', accountId: 'checking', categoryId: 'food' }),
+  movement('expense-1', 'expense', '2026-08-15', 'david', { concept: 'Supermercado', note: 'Cena de aniversario', accountId: 'checking', categoryId: 'food', recurringRuleId: 'rule-1', recurringOccurrenceDate: '2026-08-15' }),
   movement('transfer-1', 'transfer', '2026-08-12', 'esther', { concept: 'Reserva', sourceAccountId: 'checking', destinationAccountId: 'savings' }),
   movement('income-1', 'income', '2026-07-28', 'esther', { concept: 'Sueldo', accountId: 'checking', categoryId: 'salary' }),
 ]
@@ -32,6 +32,11 @@ describe('movement querying', () => {
   it('matches either side of a transfer and combines member/type filters', () => {
     expect(query({ period: 'all', accountId: 'savings' })).toEqual(['transfer-1'])
     expect(query({ period: 'all', userId: 'esther', kind: 'income' })).toEqual(['income-1'])
+  })
+
+  it('distinguishes recurring and one-off movements', () => {
+    expect(query({ period: 'all', recurrence: 'recurring' })).toEqual(['expense-1'])
+    expect(query({ period: 'all', recurrence: 'single' })).toEqual(['transfer-1', 'income-1'])
   })
 
   it('groups movements by day in descending order', () => {

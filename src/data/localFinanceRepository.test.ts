@@ -73,6 +73,24 @@ describe('LocalFinanceRepository', () => {
     expect((await repository.listCategories())[0].archivedAt).toBeNull()
     expect((await repository.pendingOperations()).map((item) => item.entityType)).toEqual(['account', 'category', 'account', 'category', 'account', 'category'])
   })
+
+  it('stores a recurring movement atomically and materializes each occurrence once', async () => {
+    const repository = new LocalFinanceRepository()
+    const transaction = await repository.createTransactionWithRecurrence(input('expense', 6500), {
+      kind: 'expense', amountCents: 6500, concept: 'Internet', note: '', accountId: 'account-1', categoryId: 'category-1',
+      frequency: 'monthly', startDate: '2026-09-14', endDate: null,
+    }, 'david')
+    const [rule] = await repository.listRecurringRules()
+    expect(transaction.recurringRuleId).toBe(rule.id)
+    expect((await repository.pendingOperations()).map((item) => item.entityType)).toEqual(['recurringRule', 'transaction'])
+    const edited = await repository.updateTransaction(transaction.id, { ...input('expense', 7000), concept: 'Internet actualizado' })
+    expect(edited).toMatchObject({ recurringRuleId: rule.id, recurringOccurrenceDate: '2026-08-14' })
+    const first = await repository.materializeRecurringOccurrence(rule.id, '2026-09-14', 'david')
+    const repeated = await repository.materializeRecurringOccurrence(rule.id, '2026-09-14', 'esther')
+    expect(repeated.id).toBe(first.id)
+    expect(await repository.listTransactions()).toHaveLength(2)
+    expect(await repository.pendingOperations()).toHaveLength(4)
+  })
 })
 
 function input(kind: 'income' | 'expense', amountCents: number) {

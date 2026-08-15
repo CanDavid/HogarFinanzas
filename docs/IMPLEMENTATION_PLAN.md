@@ -104,7 +104,7 @@ El usuario autorizó expresamente cerrar el checkpoint y avanzar a Fase 3 el 202
 
 ## Fase 3 — Movimientos completos y navegación
 
-Estado: **hotfix de borrado implementado y desplegado; pendiente de aceptación en ambos iPhone — 2026-08-15**.
+Estado: **completada y validada en ambos iPhone — 2026-08-15**.
 
 ### Alcance cerrado
 
@@ -138,7 +138,7 @@ Estado: **hotfix de borrado implementado y desplegado; pendiente de aceptación 
 - `migratePhase3` ejecutada correctamente y Web App promovido mediante `clasp` a la versión inmutable 4, descripción `version3.0.1-phase3`, conservando la misma URL. El health check público responde HTTP 200 y `3.0.1-phase3`.
 - `clasp` queda autorizado localmente y configurado con archivos rastreados explícitos y un comando reproducible de despliegue. La credencial OAuth permanece fuera de Git.
 - `clasp 3.3.0` se ejecuta bajo demanda con `npx`, sin entrar en las dependencias ni el bundle; su árbol temporal emite un aviso upstream por `uuid@9`, mientras `npm audit` del proyecto permanece en 0 vulnerabilidades.
-- Queda pendiente repetir la convergencia de los borrados y completar la matriz `IPHONE_PHASE3.md` en ambos iPhone.
+- David y Esther completaron satisfactoriamente la matriz `IPHONE_PHASE3.md`, incluida la convergencia de borrados, el uso offline y la ausencia de duplicados.
 
 ### Incidente de borrado compartido — 2026-08-15
 
@@ -147,7 +147,7 @@ Estado: **hotfix de borrado implementado y desplegado; pendiente de aceptación 
 - Hotfix `3.0.1-phase3`: los deletes validan solo su envoltorio, usan el registro canónico del servidor y respetan idempotencia antes de revalidar el payload. La PWA recupera automáticamente deletes que ya quedaron marcados como permanentes.
 - Publicación: commit `a0a5a11`, `PWA CI #10` y `Deploy GitHub Pages #10` verdes; bundle HTTPS verificado con la recuperación incluida.
 - Backend: `migratePhase3` completada; implementación pública actualizada a versión 4 y health check `3.0.1-phase3` verificado.
-- Pendiente: sincronizar ambos iPhone sin borrar los datos locales de Safari para enviar los tombstones recuperados.
+- Validación real: ambos iPhone enviaron y recibieron correctamente los tombstones recuperados; no fue necesario borrar los datos locales de Safari.
 
 ### Incidente de ajustes negativos en iPhone — 2026-08-15
 
@@ -155,11 +155,52 @@ Estado: **hotfix de borrado implementado y desplegado; pendiente de aceptación 
 - Hotfix PWA `3.0.2`: selector explícito `+ Sumar saldo` / `− Restar saldo`; el campo conserva teclado decimal y el signo se aplica en la frontera de UI antes de persistir céntimos enteros.
 - Validación local: lint y typecheck verdes, 11 archivos y 58 tests verdes, y build PWA con 7 recursos precacheados.
 - Publicación: commit `171d4ca`, `PWA CI #13` y `Deploy GitHub Pages #13` verdes; página y bundle responden 200 y contienen ambos controles de signo.
-- Pendiente: comprobación en ambos iPhone de un ajuste positivo y otro negativo.
+- Validación real: el selector de suma/resta funcionó correctamente en ambos iPhone.
+
+### Cierre
+
+El usuario confirmó el 2026-08-15 que toda la aceptación de Fase 3, incluidos ambos hotfixes, fue satisfactoria y autorizó avanzar a Fase 4.
+
+## Fase 4 — Reglas recurrentes y ocurrencias idempotentes
+
+Estado: **implementada y desplegada; pendiente de validación en ambos iPhone — 2026-08-15**.
+
+### Alcance cerrado
+
+- Alta de un movimiento real con la opción `Se repite`; crea de forma atómica el movimiento actual y su regla futura.
+- Reglas de ingreso o gasto con importe fijo en céntimos, cuenta, categoría, frecuencia mensual/trimestral/anual, próxima fecha, fin opcional y nota.
+- Gestión desde Ajustes → Recurrentes: crear, editar, pausar, reactivar, ver próximas ocurrencias y registrar una ocurrencia.
+- Calendario determinista que conserva el día ancla cuando un mes es más corto y respeta la fecha final inclusiva.
+- Cada ocurrencia usa un UUID determinista derivado de regla y fecha. Dos iPhone que registren la misma ocurrencia convergen sin crear dos movimientos.
+- Los movimientos materializados conservan `recurringRuleId` y `recurringOccurrenceDate`, muestran indicador y admiten filtro recurrente/no recurrente.
+- IndexedDB versión 3 con `recurringRules`; reglas, movimientos y cola siguen siendo la fuente local offline.
+- Apps Script `4.0.0-phase4`, esquema 4 y `migratePhase4`, con pull incremental de reglas, validación de referencias y aceptación idempotente de ocurrencias repetidas.
+
+### Deliberadamente fuera
+
+- Presupuestos, agregados previstos y proyección de final de mes, reservados para Fase 5.
+- Omitir o aplazar una ocurrencia concreta y editar en bloque movimientos ya realizados; requieren decisiones del plan mensual y no forman parte de esta fase.
+- Objetivos, cierres y análisis funcionales, reservados para sus fases.
+
+### Criterio de salida
+
+- Lint, typecheck, tests, build y CI/Pages verdes; historial sin secretos.
+- `migratePhase4` ejecutada y Web App `4.0.0-phase4` desplegada con la misma URL.
+- En ambos iPhone: crear una recurrencia, verla en el otro dispositivo, pausar/reactivar, persistir offline y registrar simultáneamente la misma ocurrencia sin duplicados.
+- La matriz reproducible está en `IPHONE_PHASE4.md`. La fase no se cerrará hasta recibir el resultado real del usuario.
+
+### Validación automatizada y despliegue
+
+- `npm run lint`, `npm run typecheck` y `npm run build`: verdes, sin warnings; app shell y service worker generados con 7 recursos precacheados.
+- `npm test`: 13 archivos y 68 tests verdes. Incluyen fin de mes, fecha final, UUID determinista, persistencia IndexedDB, alta atómica regla/movimiento, materialización repetida, filtro recurrente, UI y adaptador Apps Script.
+- Revisión renderizada a 394 × 852 px: carga correcta, sin desbordamiento y con controles accesibles.
+- `migratePhase4` ejecutada correctamente desde el editor autorizado; conserva clave, sesiones y filas y deja `schemaVersion: 4`.
+- Apps Script promovido a la versión inmutable 6, descripción `version4.0.0-phase4`, conservando la URL pública. Health check real: HTTP 200 y `4.0.0-phase4`.
+- El lanzador `apps-script:deploy` se adaptó a Node 24 en Windows usando `ComSpec` y valida la descripción antes de invocar clasp.
+- Pendiente: CI/Pages del commit de Fase 4 y toda la matriz `IPHONE_PHASE4.md` en David y Esther.
 
 ## Fases siguientes — no iniciadas
 
-- **Fase 4:** reglas recurrentes y ocurrencias idempotentes.
 - **Fase 5:** presupuestos y plan mensual.
 - **Fase 6:** objetivos virtuales y patrimonio.
 - **Fase 7:** cierres, snapshots, reapertura y recierre.

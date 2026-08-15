@@ -37,6 +37,7 @@ class FakeSpreadsheet {
     this.add('Accounts', ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'name', 'type', 'initialBalanceCents', 'includeInNetWorth', 'includeInLiquidity', 'archivedAt'])
     this.add('Categories', ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'name', 'kind', 'icon', 'archivedAt'])
     this.add('Transactions', ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'kind', 'amountCents', 'concept', 'date'])
+    this.add('RecurringRules', ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'])
     this.add('SyncOperations', ['operationId', 'processedAt', 'resultJson', 'entityType'])
   }
   add(name: string, headers: string[]) { this.sheets.set(name, new FakeSheet(name, headers)) }
@@ -47,7 +48,7 @@ class FakeSpreadsheet {
 interface ScriptContext {
   applyOperation_(spreadsheet: FakeSpreadsheet, operation: unknown, userId: string): { ok: boolean; record: Record<string, unknown> }
   pullChanges_(cursor: number, spreadsheet: FakeSpreadsheet): { changes: Record<string, unknown>[]; cursor: number }
-  migratePhase3(): { schemaVersion: number; transactionColumns: number }
+  migratePhase4(): { schemaVersion: number; transactionColumns: number; recurringRuleColumns: number }
 }
 
 function loadScript(activeSpreadsheet?: FakeSpreadsheet): ScriptContext {
@@ -80,12 +81,14 @@ function operation(operationId: string, kind: string, concept = 'Compra') {
 }
 
 describe('Apps Script sync core with Sheets adapter', () => {
-  it('migrates the transaction sheet to schema 3 without removing rows', () => {
+  it('migrates the Sheets schema to phase 4 without removing rows', () => {
     const spreadsheet = new FakeSpreadsheet()
     spreadsheet.getSheetByName('Transactions')?.rows.push(Object.values(payload()))
-    const result = loadScript(spreadsheet).migratePhase3()
-    expect(result).toEqual({ schemaVersion: 3, transactionColumns: 16 })
+    const result = loadScript(spreadsheet).migratePhase4()
+    expect(result).toEqual({ schemaVersion: 4, transactionColumns: 18, recurringRuleColumns: 17 })
     expect(spreadsheet.getSheetByName('Transactions')?.rows[0]).toContain('note')
+    expect(spreadsheet.getSheetByName('Transactions')?.rows[0]).toContain('recurringRuleId')
+    expect(spreadsheet.getSheetByName('RecurringRules')?.rows[0]).toContain('frequency')
     expect(spreadsheet.getSheetByName('Transactions')?.rows).toHaveLength(2)
   })
 
@@ -174,5 +177,26 @@ describe('Apps Script sync core with Sheets adapter', () => {
     const result = script.applyOperation_(spreadsheet, { operationId: 'transfer-op', entityType: 'transaction', kind: 'create', recordId: transfer.id, payload: transfer }, 'david')
     expect(result.record.kind).toBe('transfer')
     expect(spreadsheet.getSheetByName('Transactions')?.rows).toHaveLength(2)
+  })
+
+  it('synchronizes a recurring rule and accepts one deterministic occurrence only once', () => {
+    const script = loadScript(); const spreadsheet = new FakeSpreadsheet(); const now = '2026-08-14T10:00:00.000Z'
+    const account = { id: 'account-1', createdAt: now, updatedAt: now, deletedAt: null, createdBy: 'david', version: 0, changeSequence: 0,
+      name: 'Principal', type: 'checking', initialBalanceCents: 0, includeInNetWorth: true, includeInLiquidity: true, archivedAt: null }
+    const category = { id: 'category-1', createdAt: now, updatedAt: now, deletedAt: null, createdBy: 'david', version: 0, changeSequence: 0,
+      name: 'Casa', kind: 'expense', icon: '●', archivedAt: null }
+    script.applyOperation_(spreadsheet, { operationId: 'account', entityType: 'account', kind: 'create', recordId: account.id, payload: account }, 'david')
+    script.applyOperation_(spreadsheet, { operationId: 'category', entityType: 'category', kind: 'create', recordId: category.id, payload: category }, 'david')
+    const rule = { id: 'rule-1', createdAt: now, updatedAt: now, deletedAt: null, createdBy: 'david', version: 0, changeSequence: 0,
+      kind: 'expense', amountCents: 6500, concept: 'Internet', note: '', accountId: account.id, categoryId: category.id,
+      frequency: 'monthly', startDate: '2026-09-01', endDate: null, active: true }
+    script.applyOperation_(spreadsheet, { operationId: 'rule', entityType: 'recurringRule', kind: 'create', recordId: rule.id, payload: rule }, 'david')
+    const occurrence = { ...payload('Internet'), id: 'occurrence-1', accountId: account.id, categoryId: category.id,
+      recurringRuleId: rule.id, recurringOccurrenceDate: '2026-09-01', date: '2026-09-01' }
+    const first = script.applyOperation_(spreadsheet, { operationId: 'occurrence-a', entityType: 'transaction', kind: 'create', recordId: occurrence.id, payload: occurrence }, 'david')
+    const second = script.applyOperation_(spreadsheet, { operationId: 'occurrence-b', entityType: 'transaction', kind: 'create', recordId: occurrence.id, payload: { ...occurrence, createdBy: 'esther' } }, 'esther')
+    expect(second.record.id).toBe(first.record.id)
+    expect(spreadsheet.getSheetByName('Transactions')?.rows).toHaveLength(2)
+    expect(script.pullChanges_(0, spreadsheet).changes.map((item) => item.entityType)).toContain('recurringRule')
   })
 })
