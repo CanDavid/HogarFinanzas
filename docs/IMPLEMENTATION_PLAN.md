@@ -269,7 +269,9 @@ Estado: **implementada y desplegada; pendiente de validación en ambos iPhone �
 
 - La primera presentación mostraba `0 disponible · 121% consumido`, cálculo correcto pero sin cuantificar el exceso salvo mediante resta mental y color.
 - Hotfix PWA `5.0.3`: muestra `Excedido en 210,00 € · 121% consumido`, mantiene la barra completa y aporta un nombre accesible equivalente al lector de pantalla.
-- Pendiente: publicar y comprobar esta última presentación en iPhone; el resto de la matriz de Fase 5 debe confirmarse antes de iniciar Fase 6.
+- Validación local: lint, typecheck y build verdes; 16 archivos y 82 tests verdes, incluida la cifra excedida y su nombre accesible.
+- Publicación: commit `14c38af`, `PWA CI #21` y `Deploy GitHub Pages #21` verdes. El bundle HTTPS contiene ambos mensajes.
+- Pendiente: comprobar esta última presentación en iPhone y confirmar el resto de la matriz de Fase 5 antes de iniciar Fase 6.
 
 ## Fases siguientes — no iniciadas
 
