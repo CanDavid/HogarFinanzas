@@ -197,7 +197,8 @@ Estado: **implementada y desplegada; pendiente de validación en ambos iPhone �
 - `migratePhase4` ejecutada correctamente desde el editor autorizado; conserva clave, sesiones y filas y deja `schemaVersion: 4`.
 - Apps Script promovido a la versión inmutable 6, descripción `version4.0.0-phase4`, conservando la URL pública. Health check real: HTTP 200 y `4.0.0-phase4`.
 - El lanzador `apps-script:deploy` se adaptó a Node 24 en Windows usando `ComSpec` y valida la descripción antes de invocar clasp.
-- Pendiente: CI/Pages del commit de Fase 4 y toda la matriz `IPHONE_PHASE4.md` en David y Esther.
+- Commit `56f0b99`: `PWA CI #14` y `Deploy GitHub Pages #14` verdes. Página y bundle HTTPS responden 200 y el artefacto publicado contiene Recurrentes, `Se repite` y el filtro recurrente/no recurrente.
+- Pendiente exclusivamente de checkpoint: completar `IPHONE_PHASE4.md` en los dispositivos de David y Esther.
 
 ## Fases siguientes — no iniciadas
 
