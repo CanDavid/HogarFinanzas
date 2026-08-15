@@ -162,6 +162,52 @@ describe('LocalFinanceRepository', () => {
     expect(active).toMatchObject({ id: omitted.id, status: 'pending', source: 'recurring' })
     expect(await repository.listPlannedItems()).toHaveLength(1)
   })
+
+  it('creates a goal and its optional initial allocation atomically offline', async () => {
+    const repository = new LocalFinanceRepository()
+    const created = await repository.createGoal({ name: 'Viaje', targetAmountCents: 100_000, targetDate: '2027-06-01', icon: '✈️', note: '' }, 20_000, 'david')
+    expect((await new LocalFinanceRepository().listGoals())[0]).toEqual(created)
+    expect((await repository.listGoalAllocations())[0]).toMatchObject({ goalId: created.id, amountCents: 20_000, note: 'Importe inicial' })
+    expect((await repository.pendingOperations()).map((item) => item.entityType)).toEqual(['goal', 'goalAllocation'])
+  })
+
+  it('supports contributions and withdrawals but never permits a negative assignment', async () => {
+    const repository = new LocalFinanceRepository()
+    const created = await repository.createGoal({ name: 'Reforma', targetAmountCents: 200_000, targetDate: null, icon: '🏠', note: '' }, 0, 'esther')
+    await repository.createGoalAllocation(created.id, { amountCents: 50_000, date: '2026-08-15', note: 'Aportación' }, 'esther')
+    await repository.createGoalAllocation(created.id, { amountCents: -20_000, date: '2026-08-15', note: 'Retirada' }, 'david')
+    expect((await repository.listGoalAllocations()).reduce((sum, item) => sum + item.amountCents, 0)).toBe(30_000)
+    await expect(repository.createGoalAllocation(created.id, { amountCents: -30_001, date: '2026-08-15', note: '' }, 'david'))
+      .rejects.toThrow('más dinero del asignado')
+  })
+
+  it('blocks allocations while completed or archived and allows them after reopening or restoring', async () => {
+    const repository = new LocalFinanceRepository()
+    const created = await repository.createGoal({ name: 'Reserva', targetAmountCents: 50_000, targetDate: null, icon: '🎯', note: '' }, 0, 'david')
+    const input = { amountCents: 1_000, date: '2026-08-15', note: '' }
+    await repository.setGoalCompleted(created.id, true)
+    await expect(repository.createGoalAllocation(created.id, input, 'david')).rejects.toThrow('Reabre')
+    await repository.setGoalCompleted(created.id, false); await repository.createGoalAllocation(created.id, input, 'david')
+    await repository.archiveGoal(created.id)
+    await expect(repository.createGoalAllocation(created.id, input, 'david')).rejects.toThrow('no está activo')
+    await repository.restoreGoal(created.id); await repository.createGoalAllocation(created.id, input, 'david')
+    expect(await repository.listGoalAllocations()).toHaveLength(2)
+  })
+
+  it('rolls back a permanently rejected optimistic allocation so both clients can converge', async () => {
+    const repository = new LocalFinanceRepository()
+    const created = await repository.createGoal({ name: 'Viaje', targetAmountCents: 100_000, targetDate: null, icon: '✈️', note: '' }, 30_000, 'david')
+    const initialOperations = await repository.pendingOperations()
+    await repository.applyOperationResults(initialOperations.map((operation, index) => ({ operationId: operation.operationId, ok: true,
+      entityType: operation.entityType, record: { ...operation.payload, version: 1, changeSequence: index + 1 } })))
+    const withdrawal = await repository.createGoalAllocation(created.id, { amountCents: -20_000, date: '2026-08-15', note: '' }, 'david')
+    const [operation] = await repository.pendingOperations()
+    await repository.applyOperationResults([{ operationId: operation.operationId, ok: false,
+      error: { code: 'insufficient_goal_allocation', message: 'No puedes retirar más dinero del asignado.', permanent: true } }])
+    expect((await repository.listGoalAllocations()).some((item) => item.id === withdrawal.id)).toBe(false)
+    expect(await repository.pendingOperations()).toEqual([])
+    expect(await repository.failedOperations()).toEqual([])
+  })
 })
 
 function input(kind: 'income' | 'expense', amountCents: number) {

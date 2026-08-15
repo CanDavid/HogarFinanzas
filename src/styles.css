@@ -153,6 +153,50 @@ form > button, .form-actions button { min-height: 2.8rem; padding: .65rem 1rem; 
 .budget-main progress { width: 100%; accent-color: #e15f3b; }
 .budget-main progress.over-budget { accent-color: #c43f2b; }
 .budget-main small.over-budget { color: #a92f1f; font-weight: 750; }
+.goals-view, .goal-detail, .portfolio-view { display: grid; gap: 1rem; padding-top: 1rem; }
+.goals-hero { display: grid; gap: .35rem; color: #fff; background: #173f35; }
+.goals-hero > strong { font-size: clamp(2rem, 10vw, 3rem); }
+.goals-hero > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; margin-top: .45rem; }
+.goals-hero small, .goals-hero b { display: block; }
+.goals-hero small { color: #d5e3de; }
+.goals-hero p { margin: .45rem 0 0; padding-top: .55rem; border-top: 1px solid #ffffff38; font-size: .78rem; }
+.goal-list, .allocation-history ul, .portfolio-accounts { margin: 0; padding: 0; list-style: none; }
+.goal-list > li, .allocation-history li, .portfolio-accounts li { border-bottom: 1px solid #dddcd4; }
+.goal-main { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .55rem .7rem; align-items: center; width: 100%; padding: .9rem .15rem; border: 0; color: inherit; background: transparent; text-align: left; }
+.goal-main span > strong, .goal-main span > small, .goal-main > strong > small { display: block; }
+.goal-main small { color: #6b7a75; font-size: .72rem; }
+.goal-main > strong { text-align: right; white-space: nowrap; }
+.goal-main progress, .goal-detail-hero progress { grid-column: 1 / -1; width: 100%; accent-color: #e15f3b; }
+.goal-progress-text { grid-column: 1 / -1; text-align: right; }
+.goal-icon { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: .8rem; background: #e4ebe5; font-size: 1.25rem; }
+.goal-icon.large { width: 3rem; height: 3rem; font-size: 1.55rem; }
+.archived-goals h2, .allocation-history h2 { margin: 0; }
+.archived-goals li { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .8rem .15rem; opacity: .65; }
+.archived-goals strong, .archived-goals small { display: block; }
+.back-link { justify-self: start; padding: .25rem 0; border: 0; color: #28634f; background: transparent; font-weight: 750; }
+.goal-detail-hero { display: grid; grid-template-columns: auto 1fr; gap: .5rem .75rem; align-items: center; }
+.goal-detail-hero h2 { margin: 0; }
+.goal-detail-hero > strong, .goal-detail-hero > span:not(.goal-icon), .goal-detail-hero > p { grid-column: 1 / -1; }
+.goal-detail-hero > strong { margin-top: .45rem; font-size: clamp(2rem, 10vw, 3rem); }
+.goal-detail-hero > p { margin: 0; color: #61716b; }
+.goal-stats, .portfolio-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+.goal-stats > div, .portfolio-metrics > div { min-width: 0; padding: .85rem; border-radius: .95rem; background: #fff; }
+.goal-stats span, .goal-stats strong, .portfolio-metrics span, .portfolio-metrics strong { display: block; overflow-wrap: anywhere; }
+.goal-stats span, .portfolio-metrics span { color: #687873; font-size: .7rem; }
+.goal-stats strong, .portfolio-metrics strong { margin-top: .2rem; font-size: .95rem; }
+.goal-note, .portfolio-explanation p { color: #52655e; }
+.goal-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+.secondary-action { min-height: 2.7rem; padding: .55rem .3rem; border: 1px solid #cbd3cd; border-radius: .75rem; color: #31584d; background: #fff; font-size: .78rem; font-weight: 750; }
+.secondary-action.danger { color: #9a371f; }
+.allocation-history { display: grid; gap: .65rem; }
+.allocation-history li, .portfolio-accounts li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .65rem; align-items: center; padding: .8rem .15rem; }
+.allocation-history strong, .allocation-history small, .portfolio-accounts strong, .portfolio-accounts small { display: block; }
+.allocation-history small, .portfolio-accounts small { color: #6b7a75; font-size: .72rem; }
+.allocation-history li > strong, .portfolio-accounts li > div:last-child { text-align: right; }
+.portfolio-view .hero-card small { margin-top: .35rem; }
+.portfolio-explanation h2 { margin-bottom: .35rem; }
+.portfolio-explanation p { margin-bottom: 0; }
+.portfolio-accounts li.archived { opacity: .58; }
 .phase-note { color: #6b7a75; font-size: .75rem; text-align: center; }
 .placeholder-view { margin-top: 1rem; padding: 2rem 1.2rem; text-align: center; }
 .placeholder-view .placeholder-icon { display: grid; place-items: center; width: 3.5rem; height: 3.5rem; margin: 0 auto 1rem; border-radius: 50%; color: #356556; background: #e0e9e2; font-size: 1.7rem; }
@@ -178,5 +222,5 @@ footer { padding: 1rem 0 2rem; color: #71817b; text-align: center; font-size: .7
 .privacy { margin-top: 1rem; color: #6c7b76; text-align: center; font-size: .75rem; }
 .center { min-height: 100vh; display: grid; place-items: center; }
 @media (min-width: 42rem) { .summary { grid-template-columns: repeat(3, 1fr); } .summary .balance { grid-column: auto; } }
-@media (max-width: 23rem) { .home-links, .settings-links, .filter-grid { grid-template-columns: 1fr; } .metric-grid { gap: .35rem; } .movement-toolbar { grid-template-columns: minmax(0, 1fr) auto; } .filter-button { grid-row: 2; grid-column: 1 / -1; } }
-@media (prefers-color-scheme: dark) { :root { color: #eef5f1; background: #0f1815; } body { background: radial-gradient(circle at top right, #1d3c33, transparent 32rem), #0f1815; } .card, .summary div, .sync-banner, .filter-button, .recurrence-fields, .plan-metrics > div, .distribution-summary > div, .month-selector button { border-color: #30423c; background: #18241f; } .summary .balance, .segmented button[aria-pressed="true"], .section-nav button[aria-pressed="true"], .hero-card, .plan-hero { background: #397864; } input, select, textarea { border-color: #40554d; color: #eef5f1; background: #111c18; } label, .login legend { color: #d4e1dc; } .eyebrow, .login .intro, .login summary, .privacy, .placeholder-view p, .session-card p, .management-intro, .recurrence-options small, .month-selector small, .phase-note { color: #aebfb8; } .segmented, .section-nav, .settings-button { background: #26352f; } .segmented button, .section-nav button, .settings-button, .back-button, .close-button, .filter-button, .month-selector button { color: #d0ddd8; } .movements li, .management li, .plan-items li, .budget-list li { border-color: #2b3934; } .form-actions .secondary { color: #d4dfda; background: #2a3933; } .movement-group h3 { color: #aebfb8; background: #0f1815e8; } .bottom-nav { border-color: #2f4039; background: #14201cf2; } .bottom-nav button[aria-current="page"] { color: #dff4eb; background: #315f50; } .metric-grid span, .home-links span, .settings-links span, .plan-metrics span, .distribution-summary span { color: #aebfb8; } .text-action { color: #8bc4af; } .recurring-badge { color: #dff4eb; background: #315f50; } .budget-main small.over-budget { color: #ff9b84; } }
+@media (max-width: 23rem) { .home-links, .settings-links, .filter-grid { grid-template-columns: 1fr; } .metric-grid { gap: .35rem; } .movement-toolbar { grid-template-columns: minmax(0, 1fr) auto; } .filter-button { grid-row: 2; grid-column: 1 / -1; } .goal-actions { grid-template-columns: 1fr; } }
+@media (prefers-color-scheme: dark) { :root { color: #eef5f1; background: #0f1815; } body { background: radial-gradient(circle at top right, #1d3c33, transparent 32rem), #0f1815; } .card, .summary div, .sync-banner, .filter-button, .recurrence-fields, .plan-metrics > div, .distribution-summary > div, .month-selector button, .goal-stats > div, .portfolio-metrics > div, .secondary-action { border-color: #30423c; background: #18241f; } .summary .balance, .segmented button[aria-pressed="true"], .section-nav button[aria-pressed="true"], .hero-card, .plan-hero, .goals-hero { background: #397864; } input, select, textarea { border-color: #40554d; color: #eef5f1; background: #111c18; } label, .login legend { color: #d4e1dc; } .eyebrow, .login .intro, .login summary, .privacy, .placeholder-view p, .session-card p, .management-intro, .recurrence-options small, .month-selector small, .phase-note, .goal-detail-hero > p, .goal-note, .portfolio-explanation p { color: #aebfb8; } .segmented, .section-nav, .settings-button, .goal-icon { background: #26352f; } .segmented button, .section-nav button, .settings-button, .back-button, .back-link, .close-button, .filter-button, .month-selector button, .secondary-action { color: #d0ddd8; } .movements li, .management li, .plan-items li, .budget-list li, .goal-list > li, .allocation-history li, .portfolio-accounts li { border-color: #2b3934; } .form-actions .secondary { color: #d4dfda; background: #2a3933; } .movement-group h3 { color: #aebfb8; background: #0f1815e8; } .bottom-nav { border-color: #2f4039; background: #14201cf2; } .bottom-nav button[aria-current="page"] { color: #dff4eb; background: #315f50; } .metric-grid span, .home-links span, .settings-links span, .plan-metrics span, .distribution-summary span, .goal-stats span, .portfolio-metrics span, .goal-main small, .allocation-history small, .portfolio-accounts small { color: #aebfb8; } .text-action { color: #8bc4af; } .recurring-badge { color: #dff4eb; background: #315f50; } .budget-main small.over-budget { color: #ff9b84; } }

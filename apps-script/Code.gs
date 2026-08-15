@@ -1,6 +1,6 @@
 /* global ContentService, LockService, PropertiesService, Session, SpreadsheetApp, Utilities */
 
-const APP_VERSION = '5.0.2-phase5';
+const APP_VERSION = '6.0.0-phase6';
 const SESSION_DAYS = 30;
 const ALLOWED_USERS = ['david', 'esther'];
 const SHEETS = {
@@ -13,8 +13,8 @@ const SHEETS = {
   Budgets: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'month', 'categoryId', 'amountCents'],
   PlannedItems: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'source', 'recurringRuleId', 'kind', 'amountCents', 'concept', 'note', 'date', 'accountId', 'categoryId', 'status'],
   MonthlyPlans: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'month', 'savingsAllocationCents', 'investmentAllocationCents'],
-  Goals: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'],
-  GoalAllocations: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'],
+  Goals: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'name', 'targetAmountCents', 'targetDate', 'icon', 'note', 'completedAt', 'archivedAt'],
+  GoalAllocations: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'goalId', 'amountCents', 'date', 'note'],
   MonthlyClosures: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'],
   SyncOperations: ['operationId', 'processedAt', 'resultJson', 'entityType'],
 };
@@ -22,7 +22,7 @@ const SHEETS = {
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Hogar Finanzas')
     .addItem('Inicializar o cambiar clave', 'initializeFromPrompt')
-    .addItem('Migrar a Fase 5', 'migratePhase5')
+    .addItem('Migrar a Fase 6', 'migratePhase6')
     .addToUi();
 }
 
@@ -62,7 +62,7 @@ function initializeProject(householdKey) {
   if (!spreadsheet) throw new Error('Vincula este script a una hoja de cálculo.');
   Object.keys(SHEETS).forEach(function (name) { ensureSheet_(spreadsheet, name, SHEETS[name]); });
   seedUsers_(spreadsheet);
-  setMeta_(spreadsheet, 'schemaVersion', '5');
+  setMeta_(spreadsheet, 'schemaVersion', '6');
   if (getMeta_(spreadsheet, 'changeSequence') === null) setMeta_(spreadsheet, 'changeSequence', '0');
   seedCategories_(spreadsheet);
 
@@ -120,6 +120,17 @@ function migratePhase5() {
   seedCategories_(spreadsheet);
   return { schemaVersion: 5, transactionColumns: SHEETS.Transactions.length, budgetColumns: SHEETS.Budgets.length,
     plannedItemColumns: SHEETS.PlannedItems.length, monthlyPlanColumns: SHEETS.MonthlyPlans.length };
+}
+
+function migratePhase6() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  if (!spreadsheet) throw new Error('Vincula este script a una hoja de cálculo.');
+  Object.keys(SHEETS).forEach(function (name) { ensureSheet_(spreadsheet, name, SHEETS[name]); });
+  if (getMeta_(spreadsheet, 'changeSequence') === null) setMeta_(spreadsheet, 'changeSequence', '0');
+  setMeta_(spreadsheet, 'schemaVersion', '6');
+  seedUsers_(spreadsheet);
+  seedCategories_(spreadsheet);
+  return { schemaVersion: 6, goalColumns: SHEETS.Goals.length, goalAllocationColumns: SHEETS.GoalAllocations.length };
 }
 
 function login_(request) {
@@ -224,7 +235,7 @@ function applyOperation_(spreadsheet, operation, userId) {
 
 function pullChanges_(cursor, existingSpreadsheet) {
   const spreadsheet = existingSpreadsheet || openSpreadsheet_();
-  const changes = ['transaction', 'account', 'category', 'recurringRule', 'budget', 'plannedItem', 'monthlyPlan'].reduce(function (all, entityType) {
+  const changes = ['transaction', 'account', 'category', 'recurringRule', 'budget', 'plannedItem', 'monthlyPlan', 'goal', 'goalAllocation'].reduce(function (all, entityType) {
     const sheetName = entitySheet_(entityType);
     const rows = readObjects_(spreadsheet.getSheetByName(sheetName), SHEETS[sheetName]).map(function (row) { return normalizeEntity_(entityType, row); });
     return all.concat(rows.filter(function (record) { return record.changeSequence > cursor; }).map(function (record) { return { entityType: entityType, record: record }; }));
@@ -244,12 +255,14 @@ function validateOperation_(spreadsheet, operation, userId, entityType) {
   else if (entityType === 'recurringRule') validateRecurringRule_(spreadsheet, record);
   else if (entityType === 'budget') validateBudget_(spreadsheet, record);
   else if (entityType === 'plannedItem') validatePlannedItem_(spreadsheet, record);
-  else validateMonthlyPlan_(record);
+  else if (entityType === 'monthlyPlan') validateMonthlyPlan_(record);
+  else if (entityType === 'goal') validateGoal_(record);
+  else validateGoalAllocation_(spreadsheet, record, operation.kind === 'update' ? operation.recordId : null);
 }
 
 function validateOperationEnvelope_(operation, entityType) {
   if (!operation || typeof operation.operationId !== 'string' || !operation.operationId) throw apiError_('invalid_operation', 'Falta operationId.');
-  if (['transaction', 'account', 'category', 'recurringRule', 'budget', 'plannedItem', 'monthlyPlan'].indexOf(entityType) === -1) throw apiError_('invalid_operation', 'Entidad inválida.');
+  if (['transaction', 'account', 'category', 'recurringRule', 'budget', 'plannedItem', 'monthlyPlan', 'goal', 'goalAllocation'].indexOf(entityType) === -1) throw apiError_('invalid_operation', 'Entidad inválida.');
   if (['create', 'update', 'delete'].indexOf(operation.kind) === -1) throw apiError_('invalid_operation', 'Tipo de operación inválido.');
   if (operation.recordId !== (operation.payload && operation.payload.id)) throw apiError_('invalid_record', 'El identificador no coincide.');
 }
@@ -344,6 +357,32 @@ function validateMonthlyPlan_(record) {
       !Number.isSafeInteger(record.investmentAllocationCents) || record.investmentAllocationCents < 0) throw apiError_('invalid_amount', 'Distribución no válida.');
 }
 
+function validateGoal_(record) {
+  if (!record || typeof record.name !== 'string' || !record.name.trim() || record.name.length > 80) throw apiError_('invalid_goal', 'Nombre de objetivo no válido.');
+  if (!Number.isSafeInteger(record.targetAmountCents) || record.targetAmountCents <= 0) throw apiError_('invalid_amount', 'Importe objetivo no válido.');
+  if (record.targetDate && !/^\d{4}-\d{2}-\d{2}$/.test(record.targetDate)) throw apiError_('invalid_date', 'Fecha objetivo no válida.');
+  if (typeof record.icon !== 'string' || !record.icon.trim() || record.icon.length > 12) throw apiError_('invalid_goal', 'Icono de objetivo no válido.');
+  if (typeof record.note !== 'string' || record.note.length > 500) throw apiError_('invalid_note', 'Nota no válida.');
+  if (record.completedAt && Number.isNaN(new Date(record.completedAt).getTime())) throw apiError_('invalid_goal', 'Estado completado no válido.');
+  if (record.archivedAt && Number.isNaN(new Date(record.archivedAt).getTime())) throw apiError_('invalid_goal', 'Estado archivado no válido.');
+}
+
+function validateGoalAllocation_(spreadsheet, record, updatedId) {
+  if (!record || !record.goalId || !Number.isSafeInteger(record.amountCents) || record.amountCents === 0) throw apiError_('invalid_goal_allocation', 'Asignación de objetivo no válida.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(record.date) || typeof record.note !== 'string' || record.note.length > 500) throw apiError_('invalid_goal_allocation', 'Datos de asignación no válidos.');
+  const foundGoal = findRowObject_(spreadsheet.getSheetByName('Goals'), 'id', record.goalId);
+  if (!foundGoal || foundGoal.value.deletedAt || foundGoal.value.archivedAt) throw apiError_('inactive_goal', 'El objetivo no está activo.');
+  if (foundGoal.value.completedAt) throw apiError_('completed_goal', 'Reabre el objetivo antes de cambiar su asignación.');
+  const assigned = readObjects_(spreadsheet.getSheetByName('GoalAllocations'), SHEETS.GoalAllocations)
+    .filter(function (item) { return !item.deletedAt && String(item.goalId) === String(record.goalId) && String(item.id) !== String(updatedId || ''); })
+    .reduce(function (total, item) {
+      const next = total + Number(item.amountCents);
+      if (!Number.isSafeInteger(next)) throw apiError_('invalid_amount', 'La asignación excede el rango seguro.');
+      return next;
+    }, 0);
+  if (assigned + record.amountCents < 0) throw apiError_('insufficient_goal_allocation', 'No puedes retirar más dinero del asignado.');
+}
+
 function requireActive_(spreadsheet, sheetName, id) {
   const found = findRowObject_(spreadsheet.getSheetByName(sheetName), 'id', id);
   if (!found || found.value.deletedAt || found.value.archivedAt) throw apiError_('inactive_reference', 'La cuenta o categoría no está disponible.');
@@ -377,8 +416,11 @@ function serverRecord_(entityType, payload, version, sequence, createdBy, delete
   if (entityType === 'plannedItem') return Object.assign(common, { source: payload.source, recurringRuleId: payload.recurringRuleId || '',
     kind: payload.kind, amountCents: payload.amountCents, concept: payload.concept.trim(), note: payload.note.trim(), date: payload.date,
     accountId: payload.accountId, categoryId: payload.categoryId, status: payload.status });
-  return Object.assign(common, { month: payload.month, savingsAllocationCents: payload.savingsAllocationCents,
+  if (entityType === 'monthlyPlan') return Object.assign(common, { month: payload.month, savingsAllocationCents: payload.savingsAllocationCents,
     investmentAllocationCents: payload.investmentAllocationCents });
+  if (entityType === 'goal') return Object.assign(common, { name: payload.name.trim(), targetAmountCents: payload.targetAmountCents,
+    targetDate: payload.targetDate || '', icon: payload.icon.trim(), note: payload.note.trim(), completedAt: payload.completedAt || '', archivedAt: payload.archivedAt || '' });
+  return Object.assign(common, { goalId: payload.goalId, amountCents: payload.amountCents, date: payload.date, note: payload.note.trim() });
 }
 
 function initializeSheetHeaders_(sheet, headers) {
@@ -530,6 +572,17 @@ function normalizeMonthlyPlan_(row) {
     investmentAllocationCents: Number(row.investmentAllocationCents) });
 }
 
+function normalizeGoal_(row) {
+  return Object.assign(normalizeCommon_(row), { name: String(row.name), targetAmountCents: Number(row.targetAmountCents),
+    targetDate: row.targetDate ? normalizeDateCell_(row.targetDate) : null, icon: String(row.icon), note: row.note ? String(row.note) : '',
+    completedAt: row.completedAt ? normalizeTimestampCell_(row.completedAt) : null, archivedAt: row.archivedAt ? normalizeTimestampCell_(row.archivedAt) : null });
+}
+
+function normalizeGoalAllocation_(row) {
+  return Object.assign(normalizeCommon_(row), { goalId: String(row.goalId), amountCents: Number(row.amountCents),
+    date: normalizeDateCell_(row.date), note: row.note ? String(row.note) : '' });
+}
+
 function normalizeCommon_(row) {
   return { id: String(row.id), createdAt: normalizeTimestampCell_(row.createdAt), updatedAt: normalizeTimestampCell_(row.updatedAt),
     deletedAt: row.deletedAt ? normalizeTimestampCell_(row.deletedAt) : null, createdBy: String(row.createdBy),
@@ -543,11 +596,14 @@ function normalizeEntity_(entityType, row) {
   if (entityType === 'recurringRule') return normalizeRecurringRule_(row);
   if (entityType === 'budget') return normalizeBudget_(row);
   if (entityType === 'plannedItem') return normalizePlannedItem_(row);
-  return normalizeMonthlyPlan_(row);
+  if (entityType === 'monthlyPlan') return normalizeMonthlyPlan_(row);
+  if (entityType === 'goal') return normalizeGoal_(row);
+  return normalizeGoalAllocation_(row);
 }
 function entitySheet_(entityType) {
   return entityType === 'transaction' ? 'Transactions' : entityType === 'account' ? 'Accounts' : entityType === 'category' ? 'Categories' :
-    entityType === 'recurringRule' ? 'RecurringRules' : entityType === 'budget' ? 'Budgets' : entityType === 'plannedItem' ? 'PlannedItems' : 'MonthlyPlans';
+    entityType === 'recurringRule' ? 'RecurringRules' : entityType === 'budget' ? 'Budgets' : entityType === 'plannedItem' ? 'PlannedItems' :
+      entityType === 'monthlyPlan' ? 'MonthlyPlans' : entityType === 'goal' ? 'Goals' : 'GoalAllocations';
 }
 function toBoolean_(value) { return value === true || String(value).toLowerCase() === 'true'; }
 

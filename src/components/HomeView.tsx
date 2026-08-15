@@ -1,22 +1,27 @@
 import { localDateOnly } from '../domain/dates'
 import { calculatePortfolio, calculateTotals } from '../domain/finance'
+import { buildGoalPortfolio } from '../domain/goals'
 import { DEFAULT_MOVEMENT_FILTERS, filterMovements } from '../domain/movements'
 import { formatEuro } from '../domain/money'
-import type { Account, Category, Transaction } from '../domain/types'
+import type { Account, Category, Goal, GoalAllocation, Transaction } from '../domain/types'
 
-export function HomeView({ transactions, accounts, categories, onAddMovement, onOpenMovements, onOpenAccounts, onOpenCategories }: {
-  transactions: Transaction[]; accounts: Account[]; categories: Category[]
-  onAddMovement(): void; onOpenMovements(): void; onOpenAccounts(): void; onOpenCategories(): void
+export function HomeView({ transactions, accounts, categories, goals, allocations, onAddMovement, onOpenMovements, onOpenPortfolio, onOpenGoals, onOpenAccounts, onOpenCategories }: {
+  transactions: Transaction[]; accounts: Account[]; categories: Category[]; goals: Goal[]; allocations: GoalAllocation[]
+  onAddMovement(): void; onOpenMovements(): void; onOpenPortfolio(): void; onOpenGoals(): void; onOpenAccounts(): void; onOpenCategories(): void
 }) {
   const monthTransactions = filterMovements(transactions, DEFAULT_MOVEMENT_FILTERS, accounts, categories, localDateOnly())
   const totals = calculateTotals(monthTransactions)
   const portfolio = calculatePortfolio(accounts, transactions)
+  const goalPortfolio = buildGoalPortfolio(goals, allocations, portfolio.netWorthCents, localDateOnly())
+  const highlightedGoals = goalPortfolio.goals.filter((item) => !item.goal.archivedAt && !item.goal.completedAt).slice(0, 3)
   return <div className="home-view">
-    <section className="hero-card"><span>Patrimonio total</span><strong>{formatEuro(portfolio.netWorthCents)}</strong><small>Liquidez disponible: {formatEuro(portfolio.liquidityCents)}</small><button onClick={onOpenAccounts}>Ver cuentas</button></section>
+    <section className="hero-card"><span>Patrimonio total</span><strong>{formatEuro(portfolio.netWorthCents)}</strong><small>Liquidez disponible: {formatEuro(portfolio.liquidityCents)}</small><button onClick={onOpenPortfolio}>Ver patrimonio</button></section>
     <section className="card month-card"><div className="section-title"><h2>Este mes</h2><button className="text-action" onClick={onOpenMovements}>Ver movimientos</button></div>
       <div className="metric-grid"><div><span>Ingresos</span><strong>{formatEuro(totals.incomeCents)}</strong></div><div><span>Gastos</span><strong>{formatEuro(totals.expenseCents)}</strong></div><div><span>Resultado</span><strong>{formatEuro(totals.balanceCents)}</strong></div></div>
     </section>
     <button className="primary-action" onClick={onAddMovement}>＋ Añadir movimiento</button>
+    <section className="card home-goals"><div className="section-title"><h2>Objetivos</h2><button className="text-action" onClick={onOpenGoals}>Ver todos</button></div>
+      {highlightedGoals.length === 0 ? <p>No hay objetivos activos todavía.</p> : highlightedGoals.map((item) => <div key={item.goal.id}><span>{item.goal.icon} {item.goal.name}</span><strong>{formatEuro(item.assignedCents)} de {formatEuro(item.goal.targetAmountCents)}</strong><progress max={100} value={Math.min(Math.max(item.percentage, 0), 100)} aria-label={`${item.goal.name}: ${item.percentage}% completado`} /></div>)}</section>
     <section className="home-links"><button className="card" onClick={onOpenAccounts}><strong>Cuentas</strong><span>{accounts.filter((item) => !item.archivedAt).length} operativas</span></button>
       <button className="card" onClick={onOpenCategories}><strong>Categorías</strong><span>{categories.filter((item) => !item.archivedAt).length} operativas</span></button></section>
   </div>

@@ -206,7 +206,7 @@ El usuario confirmó el 2026-08-15 que toda la Fase 4 funciona correctamente y a
 
 ## Fase 5 — Presupuestos y plan mensual
 
-Estado: **implementada y desplegada; pendiente de validación en ambos iPhone — 2026-08-15**.
+Estado: **completada y validada en ambos iPhone — 2026-08-15**.
 
 ### Alcance cerrado
 
@@ -281,9 +281,48 @@ Estado: **implementada y desplegada; pendiente de validación en ambos iPhone �
 - Validación local: lint, typecheck y build verdes; 16 archivos y 85 tests verdes, incluidos el cambio de un importe anterior de 1.999.999 € a 2.000 € y la operación completa de proyección. El build genera 7 recursos precacheados y no aparecen patrones de secretos en el árbol ni en el historial.
 - Publicación: commit `bbb77aa`, `PWA CI #23` y `Deploy GitHub Pages #23` verdes. La página y el bundle responden HTTP 200 y el artefacto servido contiene **Guardar cambios**, **Gastos reales totales** y **Variable pendiente de gastar**. La comprobación manual específica se añadió a `IPHONE_PHASE5.md`.
 
+### Cierre
+
+El usuario confirmó el 2026-08-15 que la matriz de Fase 5 y los hotfixes de presupuesto, exceso, edición y claridad de la proyección funcionan correctamente en iPhone, y autorizó avanzar a Fase 6.
+
+## Fase 6 — Objetivos virtuales y patrimonio
+
+Estado: **implementada y desplegada; pendiente de validación en ambos iPhone — 2026-08-15**.
+
+### Alcance
+
+- Objetivos compartidos con nombre, icono, importe objetivo, fecha opcional, nota y estados activo, completado o archivado.
+- Aportaciones y retiradas virtuales con historial, fecha e identidad; nunca crean movimientos ni modifican saldos o patrimonio.
+- Progreso, importe restante, exceso, ritmo mensual y estimación de cumplimiento cuando existan datos suficientes.
+- Vista de patrimonio con total, liquidez, ahorro, inversión, desglose por cuenta y patrimonio no asignado a objetivos.
+- IndexedDB y sincronización incremental/idempotente para `Goal` y `GoalAllocation`; migración Apps Script/Sheets a esquema 6.
+- Resumen de objetivos en Inicio y área Objetivos plenamente funcional y accesible.
+
+### Deliberadamente fuera
+
+- Vincular una aportación a una transferencia real; se mantiene como opción futura porque no es necesaria para preservar la regla contable de esta fase.
+- Cierre, snapshot y variación contra el último cierre, reservados para Fase 7.
+- Gráficos y tendencias de patrimonio u objetivos, reservados para Fase 8.
+- Cotizaciones, integración bancaria o eliminación física de histórico.
+
+### Criterio de salida
+
+- Lint, typecheck, tests, build, CI y Pages verdes; historial sin secretos.
+- `migratePhase6` ejecutada y Web App `6.0.0-phase6` desplegado conservando la URL.
+- En ambos iPhone: CRUD y estados de objetivos, aportación/retirada, patrimonio inalterado, sincronización concurrente, persistencia offline y convergencia sin duplicados.
+- La fase permanecerá pendiente hasta recibir el resultado real de la matriz `IPHONE_PHASE6.md`.
+
+### Validación automatizada y despliegue
+
+- `npm run lint`, `npm run typecheck` y `npm run build`: verdes, sin warnings; PWA generada con 7 recursos precacheados.
+- `npm test`: 19 archivos y 97 tests verdes. Cubren cálculos de objetivos y patrimonio, asignaciones firmadas, archivo/restauración, persistencia offline, rollback de una retirada concurrente rechazada, UI accesible y adaptador Apps Script/Sheets.
+- Revisión local a 390 × 844 px: sin desbordamiento horizontal ni errores de consola en el arranque. Las vistas funcionales tienen además pruebas de renderizado a nivel de componente; la revisión real completa corresponde a la matriz de iPhone.
+- `migratePhase6` ejecutada correctamente desde el editor autorizado: conserva datos, clave y sesiones y deja el esquema 6 con 14 columnas en `Goals` y 11 en `GoalAllocations`.
+- Apps Script promovido a la versión inmutable 9, descripción `version6.0.0-phase6`, conservando la misma URL pública. Health check real: HTTP 200 y `6.0.0-phase6`.
+- La publicación de PWA, CI y Pages se registrará con el commit de Fase 6. La fase no se marcará completada hasta que David y Esther confirmen `IPHONE_PHASE6.md`.
+
 ## Fases siguientes — no iniciadas
 
-- **Fase 6:** objetivos virtuales y patrimonio.
 - **Fase 7:** cierres, snapshots, reapertura y recierre.
 - **Fase 8:** análisis y tendencias accesibles.
 - **Fase 9:** robustez, rendimiento, accesibilidad, exportación/importación y copias.

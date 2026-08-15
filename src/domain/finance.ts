@@ -1,7 +1,10 @@
-import type { Account, Transaction } from './types'
+import type { Account, AccountType, Transaction } from './types'
 
 export interface FinancialTotals { incomeCents: number; expenseCents: number; balanceCents: number }
 export interface PortfolioTotals { balances: ReadonlyMap<string, number>; netWorthCents: number; liquidityCents: number }
+export interface PortfolioBreakdown extends PortfolioTotals {
+  byType: ReadonlyMap<AccountType, number>
+}
 
 export function calculateTotals(transactions: Transaction[]): FinancialTotals {
   const visible = transactions.filter((transaction) => !transaction.deletedAt)
@@ -25,6 +28,15 @@ export function calculatePortfolio(accounts: Account[], transactions: Transactio
   const netWorthCents = sum(activeRecords.filter((account) => account.includeInNetWorth).map((account) => balances.get(account.id) ?? 0))
   const liquidityCents = sum(activeRecords.filter((account) => account.includeInLiquidity).map((account) => balances.get(account.id) ?? 0))
   return { balances, netWorthCents, liquidityCents }
+}
+
+export function calculatePortfolioBreakdown(accounts: Account[], transactions: Transaction[]): PortfolioBreakdown {
+  const portfolio = calculatePortfolio(accounts, transactions)
+  const byType = new Map<AccountType, number>([['checking', 0], ['savings', 0], ['investment', 0], ['cash', 0]])
+  for (const account of accounts.filter((item) => !item.deletedAt && item.includeInNetWorth)) {
+    byType.set(account.type, checkedAdd(byType.get(account.type) ?? 0, portfolio.balances.get(account.id) ?? 0))
+  }
+  return { ...portfolio, byType }
 }
 
 function apply(balances: Map<string, number>, accountId: string | null, delta: number): void {

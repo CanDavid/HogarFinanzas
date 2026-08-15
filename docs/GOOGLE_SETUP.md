@@ -1,4 +1,4 @@
-# Configuración de Google — Fases 1 a 5
+# Configuración de Google — Fases 1 a 6
 
 Estas acciones requieren la cuenta Google que será propietaria de la hoja. No publiques la clave doméstica, tokens ni contenido de la hoja.
 
@@ -90,6 +90,18 @@ La automatización autorizada puede ejecutar `migratePhase5` desde el editor y p
 5. Crea una versión nueva en la misma implementación y confirma que el health check devuelve la versión de Fase 5 vigente (`5.0.2-phase5` o posterior) antes de usar Plan en los iPhone.
 
 No ejecutes **Inicializar o cambiar clave**: `migratePhase5` conserva la clave, las sesiones y todos los datos existentes.
+
+### Migración a Fase 6
+
+La automatización autorizada puede ejecutar `migratePhase6` y promover después la implementación con `npm run apps-script:deploy -- version6.0.0-phase6`. Si se realiza manualmente:
+
+1. Sustituye `Code.gs` por la versión de Fase 6 y guarda el proyecto.
+2. Recarga la hoja y ejecuta **Hogar Finanzas → Migrar a Fase 6**.
+3. Comprueba `schemaVersion: 6`, `goalColumns: 14` y `goalAllocationColumns: 11`.
+4. Verifica que `Goals` y `GoalAllocations` tienen sus nuevas cabeceras y que las hojas y filas anteriores se conservan.
+5. Crea una versión nueva en la misma implementación y confirma que el health check devuelve `6.0.0-phase6` antes de crear objetivos en los iPhone.
+
+No ejecutes **Inicializar o cambiar clave**: `migratePhase6` conserva la clave, las sesiones y todos los datos existentes.
 
 ## Diagnóstico seguro
 

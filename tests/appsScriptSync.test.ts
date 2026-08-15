@@ -41,6 +41,8 @@ class FakeSpreadsheet {
     this.add('Budgets', ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'])
     this.add('PlannedItems', ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'])
     this.add('MonthlyPlans', ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'])
+    this.add('Goals', ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'])
+    this.add('GoalAllocations', ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'])
     this.add('SyncOperations', ['operationId', 'processedAt', 'resultJson', 'entityType'])
   }
   add(name: string, headers: string[]) { this.sheets.set(name, new FakeSheet(name, headers)) }
@@ -51,7 +53,7 @@ class FakeSpreadsheet {
 interface ScriptContext {
   applyOperation_(spreadsheet: FakeSpreadsheet, operation: unknown, userId: string): { ok: boolean; record: Record<string, unknown> }
   pullChanges_(cursor: number, spreadsheet: FakeSpreadsheet): { changes: Record<string, unknown>[]; cursor: number }
-  migratePhase5(): { schemaVersion: number; transactionColumns: number; budgetColumns: number; plannedItemColumns: number; monthlyPlanColumns: number }
+  migratePhase6(): { schemaVersion: number; goalColumns: number; goalAllocationColumns: number }
 }
 
 function loadScript(activeSpreadsheet?: FakeSpreadsheet): ScriptContext {
@@ -84,16 +86,18 @@ function operation(operationId: string, kind: string, concept = 'Compra') {
 }
 
 describe('Apps Script sync core with Sheets adapter', () => {
-  it('migrates the Sheets schema to phase 5 without removing rows', () => {
+  it('migrates the Sheets schema to phase 6 without removing rows', () => {
     const spreadsheet = new FakeSpreadsheet()
     spreadsheet.getSheetByName('Transactions')?.rows.push(Object.values(payload()))
-    const result = loadScript(spreadsheet).migratePhase5()
-    expect(result).toEqual({ schemaVersion: 5, transactionColumns: 19, budgetColumns: 10, plannedItemColumns: 17, monthlyPlanColumns: 10 })
+    const result = loadScript(spreadsheet).migratePhase6()
+    expect(result).toEqual({ schemaVersion: 6, goalColumns: 14, goalAllocationColumns: 11 })
     expect(spreadsheet.getSheetByName('Transactions')?.rows[0]).toContain('note')
     expect(spreadsheet.getSheetByName('Transactions')?.rows[0]).toContain('recurringRuleId')
     expect(spreadsheet.getSheetByName('RecurringRules')?.rows[0]).toContain('frequency')
     expect(spreadsheet.getSheetByName('Transactions')?.rows[0]).toContain('plannedItemId')
     expect(spreadsheet.getSheetByName('PlannedItems')?.rows[0]).toContain('status')
+    expect(spreadsheet.getSheetByName('Goals')?.rows[0]).toContain('targetAmountCents')
+    expect(spreadsheet.getSheetByName('GoalAllocations')?.rows[0]).toContain('goalId')
     expect(spreadsheet.getSheetByName('Transactions')?.rows).toHaveLength(2)
   })
 
@@ -242,5 +246,27 @@ describe('Apps Script sync core with Sheets adapter', () => {
     const changes = script.pullChanges_(0, spreadsheet).changes
     expect(changes.map((item) => item.entityType)).toEqual(expect.arrayContaining(['budget', 'plannedItem', 'monthlyPlan']))
     expect(changes.find((item) => item.entityType === 'budget')?.record.month).toBe('2026-08')
+  })
+
+  it('synchronizes phase 6 goals and rejects a withdrawal that would make the assignment negative', () => {
+    const spreadsheet = new FakeSpreadsheet(); const script = loadScript(spreadsheet); script.migratePhase6()
+    const now = '2026-08-15T10:00:00.000Z'
+    const goal = { id: 'goal-1', createdAt: now, updatedAt: now, deletedAt: null, createdBy: 'david', version: 0, changeSequence: 0,
+      name: 'Viaje', targetAmountCents: 100_000, targetDate: '2027-06-01', icon: '✈️', note: '', completedAt: null, archivedAt: null }
+    const saved = script.applyOperation_(spreadsheet, { operationId: 'goal-create', entityType: 'goal', kind: 'create', recordId: goal.id, payload: goal }, 'david')
+    const allocation = { id: 'allocation-1', createdAt: now, updatedAt: now, deletedAt: null, createdBy: 'esther', version: 0, changeSequence: 0,
+      goalId: goal.id, amountCents: 30_000, date: '2026-08-15', note: 'Primera aportación' }
+    const first = script.applyOperation_(spreadsheet, { operationId: 'allocation-create', entityType: 'goalAllocation', kind: 'create',
+      recordId: allocation.id, payload: allocation }, 'esther')
+    const withdrawal = { ...allocation, id: 'allocation-2', createdBy: 'david', amountCents: -20_000, note: 'Retirada' }
+    script.applyOperation_(spreadsheet, { operationId: 'allocation-withdraw', entityType: 'goalAllocation', kind: 'create',
+      recordId: withdrawal.id, payload: withdrawal }, 'david')
+    const excessive = { ...withdrawal, id: 'allocation-3', amountCents: -10_001 }
+    expect(() => script.applyOperation_(spreadsheet, { operationId: 'allocation-too-large', entityType: 'goalAllocation', kind: 'create',
+      recordId: excessive.id, payload: excessive }, 'david')).toThrow('más dinero del asignado')
+    expect(saved.record).toMatchObject({ name: 'Viaje', version: 1 })
+    expect(first.record).toMatchObject({ amountCents: 30_000, createdBy: 'esther' })
+    expect(script.pullChanges_(0, spreadsheet).changes.map((item) => item.entityType)).toEqual(expect.arrayContaining(['goal', 'goalAllocation']))
+    expect(spreadsheet.getSheetByName('GoalAllocations')?.rows).toHaveLength(3)
   })
 })

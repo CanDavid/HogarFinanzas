@@ -3,7 +3,7 @@ export type TransactionKind = 'income' | 'expense' | 'transfer' | 'adjustment'
 export type AccountType = 'checking' | 'savings' | 'investment' | 'cash'
 export type CategoryKind = 'income' | 'expense'
 export type OperationKind = 'create' | 'update' | 'delete'
-export type EntityType = 'transaction' | 'account' | 'category' | 'recurringRule' | 'budget' | 'plannedItem' | 'monthlyPlan'
+export type EntityType = 'transaction' | 'account' | 'category' | 'recurringRule' | 'budget' | 'plannedItem' | 'monthlyPlan' | 'goal' | 'goalAllocation'
 export type RecurrenceFrequency = 'monthly' | 'quarterly' | 'annual'
 
 export interface SyncableRecord {
@@ -85,7 +85,24 @@ export interface MonthlyPlan extends SyncableRecord {
   investmentAllocationCents: number
 }
 
-export type SyncEntity = Transaction | Account | Category | RecurringRule | Budget | PlannedItem | MonthlyPlan
+export interface Goal extends SyncableRecord {
+  name: string
+  targetAmountCents: number
+  targetDate: string | null
+  icon: string
+  note: string
+  completedAt: string | null
+  archivedAt: string | null
+}
+
+export interface GoalAllocation extends SyncableRecord {
+  goalId: string
+  amountCents: number
+  date: string
+  note: string
+}
+
+export type SyncEntity = Transaction | Account | Category | RecurringRule | Budget | PlannedItem | MonthlyPlan | Goal | GoalAllocation
 
 export interface SyncOperation {
   operationId: string
@@ -135,6 +152,8 @@ export type AccountInput = Pick<Account, 'name' | 'type' | 'initialBalanceCents'
 export type CategoryInput = Pick<Category, 'name' | 'kind' | 'icon'>
 export type RecurringRuleInput = Pick<RecurringRule, 'kind' | 'amountCents' | 'concept' | 'note' | 'accountId' | 'categoryId' | 'frequency' | 'startDate' | 'endDate'>
 export type PlannedItemInput = Pick<PlannedItem, 'kind' | 'amountCents' | 'concept' | 'note' | 'date' | 'accountId' | 'categoryId'>
+export type GoalInput = Pick<Goal, 'name' | 'targetAmountCents' | 'targetDate' | 'icon' | 'note'>
+export type GoalAllocationInput = Pick<GoalAllocation, 'amountCents' | 'date' | 'note'>
 
 export interface SyncRepository {
   listTransactions(): Promise<Transaction[]>
@@ -144,6 +163,8 @@ export interface SyncRepository {
   listBudgets(): Promise<Budget[]>
   listPlannedItems(): Promise<PlannedItem[]>
   listMonthlyPlans(): Promise<MonthlyPlan[]>
+  listGoals(): Promise<Goal[]>
+  listGoalAllocations(): Promise<GoalAllocation[]>
   createTransaction(input: TransactionInput, userId: UserId): Promise<Transaction>
   updateTransaction(id: string, input: TransactionInput): Promise<Transaction>
   deleteTransaction(id: string): Promise<void>
@@ -168,6 +189,12 @@ export interface SyncRepository {
   setRecurringOccurrenceStatus(ruleId: string, date: string, status: PlannedItem['status'], userId: UserId): Promise<PlannedItem>
   materializePlannedItem(id: string, userId: UserId): Promise<Transaction>
   setMonthlyPlan(month: string, savingsAllocationCents: number, investmentAllocationCents: number, userId: UserId): Promise<MonthlyPlan>
+  createGoal(input: GoalInput, initialAmountCents: number, userId: UserId): Promise<Goal>
+  updateGoal(id: string, input: GoalInput): Promise<Goal>
+  setGoalCompleted(id: string, completed: boolean): Promise<void>
+  archiveGoal(id: string): Promise<void>
+  restoreGoal(id: string): Promise<void>
+  createGoalAllocation(goalId: string, input: GoalAllocationInput, userId: UserId): Promise<GoalAllocation>
   pendingOperations(): Promise<SyncOperation[]>
   failedOperations(): Promise<SyncOperation[]>
   recoverFailedDeletions(): Promise<number>

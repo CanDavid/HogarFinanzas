@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculatePortfolio, calculateTotals } from './finance'
+import { calculatePortfolio, calculatePortfolioBreakdown, calculateTotals } from './finance'
 import type { Account, Transaction, TransactionKind } from './types'
 
 function movement(kind: TransactionKind, amountCents: number): Transaction {
@@ -38,5 +38,16 @@ describe('financial totals', () => {
     expect(result.netWorthCents).toBe(14500)
     expect(result.liquidityCents).toBe(10000)
     expect(calculateTotals([adjustment])).toEqual({ incomeCents: 0, expenseCents: 0, balanceCents: 0 })
+  })
+
+  it('breaks included balances down by account type', () => {
+    const checking = account('a', 10_000)
+    const savings = { ...account('b', 25_000, true, false), type: 'savings' as const }
+    const excluded = { ...account('c', 99_000), type: 'investment' as const, includeInNetWorth: false }
+    const result = calculatePortfolioBreakdown([checking, savings, excluded], [])
+    expect(result.netWorthCents).toBe(35_000)
+    expect(result.byType.get('checking')).toBe(10_000)
+    expect(result.byType.get('savings')).toBe(25_000)
+    expect(result.byType.get('investment')).toBe(0)
   })
 })
