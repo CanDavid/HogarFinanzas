@@ -251,7 +251,8 @@ Estado: **implementada y desplegada; pendiente de validación en ambos iPhone �
 - Causa: podían ejecutarse dos sincronizaciones a la vez. Si una edición conservaba la misma versión remota mientras seguía en la cola, una respuesta anterior podía sobrescribirla localmente; un presupuesto remoto con importe cero desaparecía entonces del plan.
 - Hotfix PWA `5.0.1`: las solicitudes se serializan y una petición recibida durante otra provoca una última pasada; los registros con operaciones pendientes quedan protegidos frente a pulls antiguos y su payload local se restaura hasta recibir confirmación del servidor.
 - Cobertura: prueba determinista de exclusión mutua y segunda pasada, más regresión IndexedDB que demuestra que un pull antiguo no puede borrar un presupuesto pendiente.
-- Pendiente: publicar, verificar CI/Pages y repetir el alta/edición de presupuesto en ambos iPhone antes de continuar la matriz.
+- Publicación: commit `fb57a2e`, `PWA CI #17` y `Deploy GitHub Pages #17` verdes. El bundle HTTPS publicado responde 200 e incluye la serialización y protección de la cola local.
+- Pendiente: repetir el bloque 0 de `IPHONE_PHASE5.md` en ambos iPhone antes de continuar la matriz.
 
 ## Fases siguientes — no iniciadas
 
