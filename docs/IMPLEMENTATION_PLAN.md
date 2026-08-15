@@ -371,7 +371,7 @@ Estado: **completada — 2026-08-16**.
 
 ## Fase 8 — Análisis y tendencias accesibles
 
-Estado: **implementada; pendiente de despliegue y validación en ambos iPhone — 2026-08-16**.
+Estado: **implementada y desplegada; pendiente de validación en ambos iPhone — 2026-08-16**.
 
 ### Alcance
 
@@ -396,6 +396,16 @@ Estado: **implementada; pendiente de despliegue y validación en ambos iPhone �
 - Lint, typecheck, 116 tests, build, CI y Pages verdes; diff e historial sin secretos.
 - En ambos iPhone: periodos, cifras mensuales, categorías, presupuestos, cierres, ahorro, objetivos, modo offline y presentación validados mediante `IPHONE_PHASE8.md`.
 - La fase permanecerá pendiente hasta recibir el resultado real de esa guía.
+
+### Validación automatizada y despliegue
+
+- `npm run lint`, `npm run typecheck` y `npm run build`: verdes, sin warnings; app shell y service worker generados con 7 recursos precacheados.
+- `npm test`: 22 archivos y 116 tests verdes. Incluyen periodos fijos/personalizados, céntimos exactos, exclusión de transferencias y ajustes, categorías, presupuesto variable, ahorro firmado y tasa no negativa, cierres, objetivos, insights, estados vacíos y accesibilidad básica de la interfaz.
+- Revisión visual a 390 × 844 px en modo oscuro: sin desplazamiento horizontal, importes cortados ni errores de consola. Se corrigieron durante la revisión la explicación del ahorro firmado, las barras de valor cero y el contraste de los desplegables.
+- Commit `2c48084`: `PWA CI #30` y `Deploy GitHub Pages #30` verdes. La página pública responde HTTP 200 y el bundle activo contiene la pantalla y textos de Fase 8.
+- `git diff --check` sin incidencias. El cambio completo y todo el historial no contienen patrones de claves API, tokens de GitHub ni claves privadas.
+- No hay migración ni despliegue de Apps Script: el Web App continúa en `7.0.0-phase7` porque Fase 8 solo agrega localmente entidades existentes.
+- Pendiente exclusivamente de checkpoint: completar `IPHONE_PHASE8.md` en los dispositivos de David y Esther.
 
 ## Fases siguientes — no iniciadas
 
