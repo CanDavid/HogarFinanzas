@@ -365,7 +365,9 @@ Estado: **implementada y desplegada; pendiente de validación en ambos iPhone �
 - `npm test`: 20 archivos y 106 tests verdes. Incluyen snapshot firmado en céntimos, cierre/reapertura/recierre, bloqueo local/remoto, rollback de una mutación rechazada, UI de solo lectura, migración Sheets e incremental pull de cierres.
 - `migratePhase7` ejecutada correctamente desde el editor autorizado: conserva datos, clave y sesiones y deja el esquema 7 con 26 columnas en `MonthlyClosures`.
 - Apps Script promovido a la versión inmutable 12, descripción `version7.0.0-phase7`, conservando la misma URL pública. Health check real: HTTP 200 y `7.0.0-phase7`.
-- Pendiente completar CI/Pages, revisión final del diff/historial y aceptación real.
+- Commit `d4cf67e`: `PWA CI #28` y `Deploy GitHub Pages #28` verdes. La página HTTPS publicada responde correctamente y arranca sin errores de consola.
+- Revisión completa del diff y `git diff --check` sin incidencias. El árbol actual y todo el historial no contienen patrones de claves API, tokens de GitHub ni claves privadas.
+- Pendiente exclusivamente de checkpoint: completar `IPHONE_PHASE7.md` en los dispositivos de David y Esther.
 
 ## Fases siguientes — no iniciadas
 
