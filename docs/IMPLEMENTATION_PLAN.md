@@ -206,7 +206,7 @@ El usuario confirmó el 2026-08-15 que toda la Fase 4 funciona correctamente y a
 
 ## Fase 5 — Presupuestos y plan mensual
 
-Estado: **implementada y backend desplegado; pendiente de CI/Pages y validación en ambos iPhone — 2026-08-15**.
+Estado: **implementada y desplegada; pendiente de validación en ambos iPhone — 2026-08-15**.
 
 ### Alcance cerrado
 
@@ -241,6 +241,9 @@ Estado: **implementada y backend desplegado; pendiente de CI/Pages y validación
 - `npm run build`: verde; app shell y service worker generados con 7 recursos precacheados.
 - `migratePhase5` ejecutada correctamente desde el editor autorizado: conserva datos y sesiones y deja `schemaVersion: 5`.
 - Apps Script promovido a la versión inmutable 7, descripción `version5.0.0-phase5`, con la misma URL pública. Health check real: HTTP 200 y `5.0.0-phase5`.
+- Commit `60f2d48`: `PWA CI #15` y `Deploy GitHub Pages #15` verdes. Página y bundle HTTPS responden 200; el artefacto publicado contiene Plan, presupuestos y distribución.
+- Revisión del diff completa y escaneo del árbol e historial sin patrones de claves API, tokens de GitHub ni claves privadas.
+- Pendiente exclusivamente de checkpoint: completar `IPHONE_PHASE5.md` en los dispositivos de David y Esther.
 
 ## Fases siguientes — no iniciadas
 
