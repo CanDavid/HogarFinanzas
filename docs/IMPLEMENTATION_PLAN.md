@@ -260,7 +260,10 @@ Estado: **implementada y desplegada; pendiente de validación en ambos iPhone �
 - Causa definitiva: Google Sheets convertía el valor mensual `YYYY-MM` en una fecha. El pull devolvía una representación completa, que conservaba el ID pero ya no coincidía con el mes del Plan. Al editar ese registro oculto, el cliente podía reenviar el mes inválido y recibir un rechazo.
 - Hotfix `5.0.2`: Apps Script normaliza celdas mensuales a `YYYY-MM`; IndexedDB repara presupuestos y distribuciones ya ocultos; `setBudget` restaura explícitamente mes/categoría; la cola repara y reactiva operaciones de plan rechazadas por este formato.
 - Cobertura: prueba Apps Script con coerción realista a `Date` y regresión local de reparación de registro + operación permanente, sin perder el importe ni crear otro ID.
-- No requiere migración de Sheets. Pendiente de despliegue y repetición del bloque 0 en ambos iPhone.
+- No requiere migración de Sheets. Apps Script fue promovido a la versión inmutable 8 (`version5.0.2-phase5`); health check HTTP 200 y `5.0.2-phase5`.
+- Validación local: lint, typecheck y build verdes; 16 archivos y 81 tests verdes.
+- Publicación: commit `5d159c9`, `PWA CI #19` y `Deploy GitHub Pages #19` verdes.
+- Pendiente exclusivamente de checkpoint: actualizar ambos iPhone y repetir el bloque 0 de `IPHONE_PHASE5.md`.
 
 ## Fases siguientes — no iniciadas
 
