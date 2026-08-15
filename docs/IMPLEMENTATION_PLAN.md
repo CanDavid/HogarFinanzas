@@ -154,7 +154,8 @@ Estado: **hotfix de borrado implementado y desplegado; pendiente de aceptación 
 - Observación real: el teclado decimal de iOS no ofrece el carácter `-`, por lo que no se podía reducir el saldo desde el formulario de ajuste.
 - Hotfix PWA `3.0.2`: selector explícito `+ Sumar saldo` / `− Restar saldo`; el campo conserva teclado decimal y el signo se aplica en la frontera de UI antes de persistir céntimos enteros.
 - Validación local: lint y typecheck verdes, 11 archivos y 58 tests verdes, y build PWA con 7 recursos precacheados.
-- Pendiente: CI/Pages y comprobación en ambos iPhone de un ajuste positivo y otro negativo.
+- Publicación: commit `171d4ca`, `PWA CI #13` y `Deploy GitHub Pages #13` verdes; página y bundle responden 200 y contienen ambos controles de signo.
+- Pendiente: comprobación en ambos iPhone de un ajuste positivo y otro negativo.
 
 ## Fases siguientes — no iniciadas
 
