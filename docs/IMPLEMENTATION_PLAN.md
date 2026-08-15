@@ -279,7 +279,7 @@ Estado: **implementada y desplegada; pendiente de validación en ambos iPhone �
 - Hotfix PWA `5.0.4`: el botón dice **Guardar cambios** y deja de presentar cifras desfasadas. La tarjeta de proyección muestra la ecuación completa y el resumen distingue ingresos pendientes, gastos reales totales, gastos fijos pendientes y presupuesto variable pendiente de gastar.
 - Verificación determinista: el caso `125 + 0 − 4.360 − 0 − 1.833` produce `−6.068 €`; los `4.360 €` son `2.750 €` fijos pagados más `1.610 €` variables registrados, por lo que no existe doble contabilización.
 - Validación local: lint, typecheck y build verdes; 16 archivos y 85 tests verdes, incluidos el cambio de un importe anterior de 1.999.999 € a 2.000 € y la operación completa de proyección. El build genera 7 recursos precacheados y no aparecen patrones de secretos en el árbol ni en el historial.
-- Publicación: pendiente de completar. La comprobación manual específica se añadió a `IPHONE_PHASE5.md`.
+- Publicación: commit `bbb77aa`, `PWA CI #23` y `Deploy GitHub Pages #23` verdes. La página y el bundle responden HTTP 200 y el artefacto servido contiene **Guardar cambios**, **Gastos reales totales** y **Variable pendiente de gastar**. La comprobación manual específica se añadió a `IPHONE_PHASE5.md`.
 
 ## Fases siguientes — no iniciadas
 
