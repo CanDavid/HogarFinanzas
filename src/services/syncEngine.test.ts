@@ -9,6 +9,7 @@ class RepositoryStub implements SyncRepository {
   applied = false
   merged: SyncChange[] = []
   transportError = ''
+  recoveredDeletions = false
   listTransactions = async () => []
   listAccounts = async () => []
   listCategories = async () => []
@@ -25,6 +26,7 @@ class RepositoryStub implements SyncRepository {
   restoreCategory = async () => undefined
   pendingOperations = async () => this.operations
   failedOperations = async () => []
+  recoverFailedDeletions = async () => { this.recoveredDeletions = true; return 0 }
   markTransportFailure = async (message: string) => { this.transportError = message }
   applyOperationResults = async () => { this.applied = true }
   mergeServerChanges = async (changes: SyncChange[]) => { this.merged = changes }
@@ -41,6 +43,7 @@ describe('SyncEngine', () => {
     const repository = new RepositoryStub()
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, data: { results: [], changes: [], cursor: 9 } }) }))
     await expect(new SyncEngine(repository).run()).resolves.toEqual({ pushed: 0, pulled: 0, failed: 0 })
+    expect(repository.recoveredDeletions).toBe(true)
     expect(repository.applied).toBe(true)
     expect(repository.cursor).toBe(9)
     expect(fetch).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ method: 'POST', redirect: 'follow' }))

@@ -106,6 +106,7 @@ El POST usa `text/plain;charset=utf-8`, sigue la redirección de ContentService 
 - En edición concurrente gana el último cambio aceptado por orden del lock.
 - Un tombstone no puede resucitar mediante update; un delete desconocido crea tombstone.
 - Error de red conserva la cola. Error permanente deja `lastError` y no se reintenta automáticamente.
+- Excepción de recuperación: un borrado previamente rechazado se reactiva antes de sincronizar. El servidor no revalida como alta el contenido de un tombstone y conserva como base el registro canónico compartido.
 
 ### Pull incremental
 

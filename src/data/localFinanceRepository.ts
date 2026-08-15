@@ -95,6 +95,18 @@ export class LocalFinanceRepository implements SyncRepository {
     return (await (await getDatabase()).getAll('outbox')).filter((item) => item.permanentFailure)
   }
 
+  async recoverFailedDeletions(): Promise<number> {
+    const database = await getDatabase(); const transaction = database.transaction('outbox', 'readwrite')
+    let recovered = 0
+    for (const operation of await transaction.store.getAll()) {
+      if (!operation.permanentFailure || operation.kind !== 'delete') continue
+      await transaction.store.put({ ...operation, permanentFailure: false, lastError: null })
+      recovered += 1
+    }
+    await transaction.done
+    return recovered
+  }
+
   async markTransportFailure(message: string): Promise<void> {
     const database = await getDatabase(); const transaction = database.transaction('outbox', 'readwrite')
     for (const operation of await transaction.store.getAll()) {

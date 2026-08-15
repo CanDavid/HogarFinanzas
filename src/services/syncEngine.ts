@@ -7,6 +7,7 @@ export class SyncEngine {
   constructor(private readonly repository: SyncRepository) {}
 
   async run(): Promise<SyncResult> {
+    await this.repository.recoverFailedDeletions()
     const [session, serverUrl, operations, cursor] = await Promise.all([
       this.repository.getSession(),
       this.repository.getServerUrl(),

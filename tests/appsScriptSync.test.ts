@@ -92,10 +92,21 @@ describe('Apps Script sync core with Sheets adapter', () => {
   it('replays the saved result without duplicating a retried create', () => {
     const script = loadScript(); const spreadsheet = new FakeSpreadsheet(); const create = operation('op-create', 'create')
     const first = script.applyOperation_(spreadsheet, create, 'david')
-    const repeated = script.applyOperation_(spreadsheet, create, 'david')
+    const repeated = script.applyOperation_(spreadsheet, { ...create, payload: { ...payload(), concept: '' } }, 'david')
     expect(repeated).toEqual(first)
     expect(spreadsheet.getSheetByName('Transactions')?.rows).toHaveLength(2)
     expect(spreadsheet.getSheetByName('SyncOperations')?.rows).toHaveLength(2)
+  })
+
+  it('deletes a legacy movement using the canonical server record', () => {
+    const script = loadScript(); const spreadsheet = new FakeSpreadsheet()
+    script.applyOperation_(spreadsheet, operation('op-create-legacy', 'create'), 'david')
+    const normalizedByClient = { ...payload('Contenido local obsoleto'), accountId: null, categoryId: null, sourceAccountId: null, destinationAccountId: null }
+    const deleted = script.applyOperation_(spreadsheet, { operationId: 'op-delete-legacy', entityType: 'transaction', kind: 'delete',
+      recordId: normalizedByClient.id, payload: normalizedByClient }, 'esther')
+    expect(deleted.record.deletedAt).toBeTruthy()
+    expect(deleted.record.concept).toBe('Compra')
+    expect(script.pullChanges_(1, spreadsheet).changes[0].record.deletedAt).toBeTruthy()
   })
 
   it('returns only changes after the incremental cursor', () => {

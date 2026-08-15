@@ -104,7 +104,7 @@ El usuario autorizó expresamente cerrar el checkpoint y avanzar a Fase 3 el 202
 
 ## Fase 3 — Movimientos completos y navegación
 
-Estado: **implementada y publicada; pendiente de migración/despliegue Google y aceptación en iPhone — 2026-08-15**.
+Estado: **hotfix de borrado implementado localmente; pendiente de CI/Pages, migración/despliegue Google y aceptación en iPhone — 2026-08-15**.
 
 ### Alcance cerrado
 
@@ -113,7 +113,7 @@ Estado: **implementada y publicada; pendiente de migración/despliegue Google y 
 - Alta, edición y eliminación lógica de gasto, ingreso y transferencia; nota opcional sincronizable. Ajustes de saldo iniciados desde una cuenta operativa.
 - Lista agrupada por día con concepto, contexto de cuenta/categoría, miembro, nota e importe financieramente correcto.
 - Búsqueda local por concepto, nota, cuenta y categoría; filtros por periodo, rango personalizado, tipo, cuenta, categoría y miembro.
-- Apps Script `3.0.0-phase3` y migración idempotente que añade `note` sin modificar el resto de datos.
+- Apps Script `3.0.1-phase3` y migración idempotente que añade `note` sin modificar el resto de datos e incluye el hotfix de borrado compartido.
 
 ### Deliberadamente fuera
 
@@ -124,17 +124,24 @@ Estado: **implementada y publicada; pendiente de migración/despliegue Google y 
 ### Criterio de salida
 
 - Lint, typecheck, tests, build y CI/Pages verdes.
-- `migratePhase3` ejecutada y Web App `3.0.0-phase3` desplegado con la misma URL.
+- `migratePhase3` ejecutada y Web App `3.0.1-phase3` desplegado con la misma URL.
 - En ambos iPhone: navegación, Inicio, CRUD y notas compartidas, agrupación, búsqueda/filtros, ajuste desde cuenta y convergencia offline sin duplicados.
 
 ### Validación automatizada local
 
 - `npm run lint`: verde, sin warnings.
 - `npm run typecheck`: verde.
-- `npm test`: 11 archivos y 55 tests verdes, incluida la migración idempotente del esquema 3.
+- `npm test`: 11 archivos y 57 tests verdes, incluidas la migración idempotente, el borrado de movimientos históricos y la recuperación de tombstones rechazados.
 - `npm run build`: verde; app shell y service worker generados con 7 recursos precacheados.
 - `PWA CI #9` y `Deploy GitHub Pages #9` sobre `cb43d4a`: verdes. La página y el bundle responden 200 y contienen la navegación de cinco áreas, búsqueda y estados de fases futuras.
-- El health check real continúa respondiendo `2.0.0-phase2`; `migratePhase3`, el despliegue `3.0.0-phase3` y la matriz `IPHONE_PHASE3.md` quedan pendientes de las acciones externas del usuario.
+- El health check real continúa respondiendo `2.0.0-phase2`; `migratePhase3`, el despliegue `3.0.1-phase3` y la matriz `IPHONE_PHASE3.md` quedan pendientes de las acciones externas del usuario.
+
+### Incidente de borrado compartido — 2026-08-15
+
+- Observación real: David y Esther ocultaban localmente movimientos eliminados, pero el otro iPhone seguía viéndolos.
+- Causa: Apps Script validaba el payload completo del tombstone como un alta/edición. Los movimientos históricos sin cuenta/categoría —o con referencias archivadas— eran rechazados permanentemente antes de llegar a Sheets.
+- Hotfix `3.0.1-phase3`: los deletes validan solo su envoltorio, usan el registro canónico del servidor y respetan idempotencia antes de revalidar el payload. La PWA recupera automáticamente deletes que ya quedaron marcados como permanentes.
+- Pendiente: publicar CI/Pages, desplegar Apps Script `3.0.1-phase3` y sincronizar ambos iPhone sin borrar los datos locales de Safari para enviar los tombstones recuperados.
 
 ## Fases siguientes — no iniciadas
 

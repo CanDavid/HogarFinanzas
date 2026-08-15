@@ -1,6 +1,6 @@
 /* global ContentService, LockService, PropertiesService, Session, SpreadsheetApp, Utilities */
 
-const APP_VERSION = '3.0.0-phase3';
+const APP_VERSION = '3.0.1-phase3';
 const SESSION_DAYS = 30;
 const ALLOWED_USERS = ['david', 'esther'];
 const SHEETS = {
@@ -136,9 +136,10 @@ function sync_(request) {
 
 function applyOperation_(spreadsheet, operation, userId) {
   const entityType = operation && operation.entityType ? operation.entityType : 'transaction';
-  validateOperation_(spreadsheet, operation, userId, entityType);
+  validateOperationEnvelope_(operation, entityType);
   const previous = findRowObject_(spreadsheet.getSheetByName('SyncOperations'), 'operationId', operation.operationId);
   if (previous) return JSON.parse(previous.value.resultJson);
+  validateOperation_(spreadsheet, operation, userId, entityType);
 
   const sheetName = entitySheet_(entityType);
   const sheet = spreadsheet.getSheetByName(sheetName);
@@ -159,7 +160,8 @@ function applyOperation_(spreadsheet, operation, userId) {
       record = current;
     } else {
       const deletedAt = operation.kind === 'delete' ? new Date().toISOString() : null;
-      record = serverRecord_(entityType, operation.payload, current.version + 1, nextSequence_(spreadsheet), current.createdBy, deletedAt);
+      const payload = operation.kind === 'delete' ? current : operation.payload;
+      record = serverRecord_(entityType, payload, current.version + 1, nextSequence_(spreadsheet), current.createdBy, deletedAt);
       writeObjectRow_(sheet, found.row, SHEETS[sheetName], record);
     }
   }
@@ -185,15 +187,20 @@ function pullChanges_(cursor, existingSpreadsheet) {
 }
 
 function validateOperation_(spreadsheet, operation, userId, entityType) {
-  if (!operation || typeof operation.operationId !== 'string' || !operation.operationId) throw apiError_('invalid_operation', 'Falta operationId.');
-  if (['transaction', 'account', 'category'].indexOf(entityType) === -1) throw apiError_('invalid_operation', 'Entidad inválida.');
-  if (['create', 'update', 'delete'].indexOf(operation.kind) === -1) throw apiError_('invalid_operation', 'Tipo de operación inválido.');
-  if (operation.recordId !== (operation.payload && operation.payload.id)) throw apiError_('invalid_record', 'El identificador no coincide.');
+  validateOperationEnvelope_(operation, entityType);
+  if (operation.kind === 'delete') return;
   const record = operation.payload;
   if (operation.kind === 'create' && record.createdBy !== userId) throw apiError_('invalid_owner', 'El creador no coincide con la sesión.');
   if (entityType === 'transaction') validateTransaction_(spreadsheet, record, !operation.entityType || !Object.prototype.hasOwnProperty.call(record, 'accountId'));
   else if (entityType === 'account') validateAccount_(record);
   else validateCategory_(record);
+}
+
+function validateOperationEnvelope_(operation, entityType) {
+  if (!operation || typeof operation.operationId !== 'string' || !operation.operationId) throw apiError_('invalid_operation', 'Falta operationId.');
+  if (['transaction', 'account', 'category'].indexOf(entityType) === -1) throw apiError_('invalid_operation', 'Entidad inválida.');
+  if (['create', 'update', 'delete'].indexOf(operation.kind) === -1) throw apiError_('invalid_operation', 'Tipo de operación inválido.');
+  if (operation.recordId !== (operation.payload && operation.payload.id)) throw apiError_('invalid_record', 'El identificador no coincide.');
 }
 
 function validateTransaction_(spreadsheet, record, legacy) {

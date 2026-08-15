@@ -106,6 +106,7 @@ export interface SyncRepository {
   restoreCategory(id: string): Promise<void>
   pendingOperations(): Promise<SyncOperation[]>
   failedOperations(): Promise<SyncOperation[]>
+  recoverFailedDeletions(): Promise<number>
   markTransportFailure(message: string): Promise<void>
   applyOperationResults(results: OperationResult[]): Promise<void>
   mergeServerChanges(changes: SyncChange[]): Promise<void>

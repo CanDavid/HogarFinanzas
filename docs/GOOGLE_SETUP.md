@@ -56,7 +56,7 @@ No vuelvas a ejecutar **Inicializar o cambiar clave** para esta migración: no e
 2. Recarga la hoja y ejecuta **Hogar Finanzas → Migrar a Fase 3**.
 3. Comprueba que devuelve `schemaVersion: 3`; la migración añade `note` al final de `Transactions` sin alterar las filas existentes.
 4. Crea una versión nueva de la implementación manteniendo la misma URL `/exec`.
-5. Abre la URL y confirma que el health check devuelve `3.0.0-phase3`.
+5. Abre la URL y confirma que el health check devuelve `3.0.1-phase3`.
 6. Después actualiza/reabre la PWA en ambos iPhone. No guardes notas nuevas antes de confirmar la versión del Web App, porque el backend anterior no conserva ese campo.
 
 No ejecutes **Inicializar o cambiar clave**: `migratePhase3` conserva clave, sesiones y datos.

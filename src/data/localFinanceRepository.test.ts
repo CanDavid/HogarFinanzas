@@ -34,6 +34,21 @@ describe('LocalFinanceRepository', () => {
     expect(await repository.failedOperations()).toHaveLength(1)
   })
 
+  it('recovers a previously rejected deletion for the next sync', async () => {
+    const repository = new LocalFinanceRepository()
+    const remote = { id: crypto.randomUUID(), createdAt: '2026-08-14T10:00:00.000Z', updatedAt: '2026-08-14T10:00:00.000Z', deletedAt: null,
+      createdBy: 'david' as const, version: 1, changeSequence: 1, kind: 'expense' as const, amountCents: 1234, concept: 'Movimiento antiguo', note: '',
+      date: '2026-08-14', accountId: null, categoryId: null, sourceAccountId: null, destinationAccountId: null }
+    await repository.mergeServerChanges([{ entityType: 'transaction', record: remote }])
+    await repository.deleteTransaction(remote.id)
+    const [deletion] = await repository.pendingOperations()
+    await repository.applyOperationResults([{ operationId: deletion.operationId, ok: false,
+      error: { code: 'invalid_account', message: 'Cuenta obligatoria.', permanent: true } }])
+    expect(await repository.pendingOperations()).toEqual([])
+    expect(await repository.recoverFailedDeletions()).toBe(1)
+    expect(await repository.pendingOperations()).toEqual([expect.objectContaining({ kind: 'delete', permanentFailure: false, lastError: null })])
+  })
+
   it('repairs a Google Sheets date representation stored locally', async () => {
     const repository = new LocalFinanceRepository()
     const remote = {
