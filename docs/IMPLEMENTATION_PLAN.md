@@ -254,6 +254,14 @@ Estado: **implementada y desplegada; pendiente de validación en ambos iPhone �
 - Publicación: commit `fb57a2e`, `PWA CI #17` y `Deploy GitHub Pages #17` verdes. El bundle HTTPS publicado responde 200 e incluye la serialización y protección de la cola local.
 - Pendiente: repetir el bloque 0 de `IPHONE_PHASE5.md` en ambos iPhone antes de continuar la matriz.
 
+### Incidente de mes transformado por Google Sheets — 2026-08-15
+
+- La repetición real demostró que el hotfix `5.0.1` no resolvía la desaparición principal: incluso un presupuesto nuevo desaparecía tras sincronizar y uno anterior no podía recrearse de forma visible.
+- Causa definitiva: Google Sheets convertía el valor mensual `YYYY-MM` en una fecha. El pull devolvía una representación completa, que conservaba el ID pero ya no coincidía con el mes del Plan. Al editar ese registro oculto, el cliente podía reenviar el mes inválido y recibir un rechazo.
+- Hotfix `5.0.2`: Apps Script normaliza celdas mensuales a `YYYY-MM`; IndexedDB repara presupuestos y distribuciones ya ocultos; `setBudget` restaura explícitamente mes/categoría; la cola repara y reactiva operaciones de plan rechazadas por este formato.
+- Cobertura: prueba Apps Script con coerción realista a `Date` y regresión local de reparación de registro + operación permanente, sin perder el importe ni crear otro ID.
+- No requiere migración de Sheets. Pendiente de despliegue y repetición del bloque 0 en ambos iPhone.
+
 ## Fases siguientes — no iniciadas
 
 - **Fase 6:** objetivos virtuales y patrimonio.

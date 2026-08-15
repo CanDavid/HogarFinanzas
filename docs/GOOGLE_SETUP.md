@@ -87,7 +87,7 @@ La automatización autorizada puede ejecutar `migratePhase5` desde el editor y p
 2. Recarga la hoja y ejecuta **Hogar Finanzas → Migrar a Fase 5**.
 3. Comprueba `schemaVersion: 5`, `transactionColumns: 19`, `budgetColumns: 10`, `plannedItemColumns: 17` y `monthlyPlanColumns: 10`.
 4. Verifica que existen `Budgets`, `PlannedItems` y `MonthlyPlans`; las filas previas de `Transactions` y el resto de hojas deben conservarse.
-5. Crea una versión nueva en la misma implementación y confirma que el health check devuelve `5.0.0-phase5` antes de usar Plan en los iPhone.
+5. Crea una versión nueva en la misma implementación y confirma que el health check devuelve la versión de Fase 5 vigente (`5.0.2-phase5` o posterior) antes de usar Plan en los iPhone.
 
 No ejecutes **Inicializar o cambiar clave**: `migratePhase5` conserva la clave, las sesiones y todos los datos existentes.
 

@@ -1,6 +1,6 @@
 /* global ContentService, LockService, PropertiesService, Session, SpreadsheetApp, Utilities */
 
-const APP_VERSION = '5.0.0-phase5';
+const APP_VERSION = '5.0.2-phase5';
 const SESSION_DAYS = 30;
 const ALLOWED_USERS = ['david', 'esther'];
 const SHEETS = {
@@ -516,7 +516,7 @@ function normalizeRecurringRule_(row) {
 }
 
 function normalizeBudget_(row) {
-  return Object.assign(normalizeCommon_(row), { month: String(row.month), categoryId: String(row.categoryId), amountCents: Number(row.amountCents) });
+  return Object.assign(normalizeCommon_(row), { month: normalizeMonthCell_(row.month), categoryId: String(row.categoryId), amountCents: Number(row.amountCents) });
 }
 
 function normalizePlannedItem_(row) {
@@ -526,7 +526,7 @@ function normalizePlannedItem_(row) {
 }
 
 function normalizeMonthlyPlan_(row) {
-  return Object.assign(normalizeCommon_(row), { month: String(row.month), savingsAllocationCents: Number(row.savingsAllocationCents),
+  return Object.assign(normalizeCommon_(row), { month: normalizeMonthCell_(row.month), savingsAllocationCents: Number(row.savingsAllocationCents),
     investmentAllocationCents: Number(row.investmentAllocationCents) });
 }
 
@@ -562,6 +562,14 @@ function normalizeDateCell_(value) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return text;
   return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+function normalizeMonthCell_(value) {
+  const text = String(value);
+  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(text)) return text;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return text;
+  return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM');
 }
 
 function openSpreadsheet_() {

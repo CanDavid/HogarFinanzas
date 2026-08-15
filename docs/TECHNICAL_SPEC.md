@@ -165,6 +165,8 @@ El POST usa `text/plain;charset=utf-8`, sigue la redirección de ContentService 
 
 `Meta.changeSequence` es global. Se devuelven filas con secuencia mayor que el cursor. El recorrido lineal de Sheets se acepta para dos usuarios y volumen doméstico; solo se optimizará con evidencia.
 
+Sheets puede convertir tanto `YYYY-MM-DD` como `YYYY-MM` en celdas de fecha. Apps Script normaliza ambos formatos antes de responder y el repositorio local repara registros y operaciones antiguas antes de mostrarlos o reenviarlos.
+
 ## 6. Google Sheets y Apps Script
 
 El inicializador idempotente crea todas las hojas. En Fase 5 son funcionales `Meta`, `Users`, `Accounts`, `Categories`, `Transactions`, `RecurringRules`, `Budgets`, `PlannedItems`, `MonthlyPlans` y `SyncOperations`; objetivos y cierres continúan reservados. `migratePhase5` añade el vínculo a previstos y activa las tres hojas del plan sin modificar filas existentes.

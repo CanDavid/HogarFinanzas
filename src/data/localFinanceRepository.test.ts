@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { clearDatabaseForTests } from './database'
+import { clearDatabaseForTests, getDatabase } from './database'
 import { LocalFinanceRepository } from './localFinanceRepository'
 
 describe('LocalFinanceRepository', () => {
@@ -124,6 +124,20 @@ describe('LocalFinanceRepository', () => {
 
     expect((await repository.listBudgets())[0].amountCents).toBe(30_000)
     expect(await repository.pendingOperations()).toHaveLength(2)
+  })
+
+  it('repairs months coerced to dates in stored budgets and their rejected outbox operations', async () => {
+    const repository = new LocalFinanceRepository(); const database = await getDatabase()
+    const malformedMonth = 'Sat Aug 01 2026 00:00:00 GMT+0200 (Central European Summer Time)'
+    const budget = { id: 'budget-hidden', createdAt: '2026-08-15T10:00:00.000Z', updatedAt: '2026-08-15T10:00:00.000Z',
+      deletedAt: null, createdBy: 'david' as const, version: 1, changeSequence: 2, month: malformedMonth, categoryId: 'food', amountCents: 100_000 }
+    await database.put('budgets', budget)
+    await database.put('outbox', { operationId: 'repair-budget-operation', localSequence: 1, entityType: 'budget', kind: 'update',
+      recordId: budget.id, payload: budget, baseVersion: 1, attempts: 1, lastError: 'Mes inválido', permanentFailure: true })
+
+    expect((await repository.listBudgets())[0].month).toBe('2026-08')
+    expect((await repository.pendingOperations())[0]).toMatchObject({ permanentFailure: false, lastError: null,
+      payload: { month: '2026-08', amountCents: 100_000 } })
   })
 
   it('persists manual planned items and materializes them idempotently', async () => {

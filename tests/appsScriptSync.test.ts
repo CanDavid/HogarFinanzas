@@ -61,10 +61,10 @@ function loadScript(activeSpreadsheet?: FakeSpreadsheet): ScriptContext {
     Session: { getScriptTimeZone: () => 'Europe/Madrid' },
     Utilities: {
       getUuid: () => '22222222-2222-4222-8222-222222222222',
-      formatDate(value: Date) {
+      formatDate(value: Date, _timeZone?: string, format = 'yyyy-MM-dd') {
         const parts = new Intl.DateTimeFormat('en', { timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit' })
           .formatToParts(value).reduce<Record<string, string>>((result, part) => ({ ...result, [part.type]: part.value }), {})
-        return `${parts.year}-${parts.month}-${parts.day}`
+        return format === 'yyyy-MM' ? `${parts.year}-${parts.month}` : `${parts.year}-${parts.month}-${parts.day}`
       },
     },
   }
@@ -218,6 +218,9 @@ describe('Apps Script sync core with Sheets adapter', () => {
     const first = script.applyOperation_(spreadsheet, { operationId: 'budget-david', entityType: 'budget', kind: 'create', recordId: budget.id, payload: budget }, 'david')
     const last = script.applyOperation_(spreadsheet, { operationId: 'budget-esther', entityType: 'budget', kind: 'create', recordId: budget.id,
       payload: { ...budget, createdBy: 'esther', amountCents: 25_000 } }, 'esther')
+    const budgetSheet = spreadsheet.getSheetByName('Budgets')
+    if (!budgetSheet) throw new Error('Missing Budgets sheet')
+    budgetSheet.rows[1][7] = new Date('2026-07-31T22:00:00.000Z')
     const item = { id: 'planned-1', createdAt: now, updatedAt: now, deletedAt: null, createdBy: 'david', version: 0, changeSequence: 0,
       source: 'manual', recurringRuleId: null, kind: 'expense', amountCents: 6_000, concept: 'Seguro', note: '', date: '2026-08-20',
       accountId: account.id, categoryId: category.id, status: 'pending' }
@@ -236,6 +239,8 @@ describe('Apps Script sync core with Sheets adapter', () => {
     expect(last.record).toMatchObject({ version: 2, amountCents: 25_000, createdBy: 'david' })
     expect(repeatedRealization.record.id).toBe(realized.record.id)
     expect(spreadsheet.getSheetByName('Budgets')?.rows).toHaveLength(2)
-    expect(script.pullChanges_(0, spreadsheet).changes.map((item) => item.entityType)).toEqual(expect.arrayContaining(['budget', 'plannedItem', 'monthlyPlan']))
+    const changes = script.pullChanges_(0, spreadsheet).changes
+    expect(changes.map((item) => item.entityType)).toEqual(expect.arrayContaining(['budget', 'plannedItem', 'monthlyPlan']))
+    expect(changes.find((item) => item.entityType === 'budget')?.record.month).toBe('2026-08')
   })
 })

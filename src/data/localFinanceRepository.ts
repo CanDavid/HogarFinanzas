@@ -40,7 +40,9 @@ export class LocalFinanceRepository implements SyncRepository {
   }
 
   async listBudgets(): Promise<Budget[]> {
-    return (await (await getDatabase()).getAll('budgets')).filter((item) => !item.deletedAt)
+    const database = await getDatabase(); const stored = await database.getAll('budgets'); const normalized = stored.map(normalizeBudget)
+    await Promise.all(normalized.filter((item, index) => item.month !== stored[index].month).map((item) => database.put('budgets', item)))
+    return normalized.filter((item) => !item.deletedAt)
       .sort((left, right) => left.month.localeCompare(right.month) || left.categoryId.localeCompare(right.categoryId))
   }
 
@@ -50,7 +52,9 @@ export class LocalFinanceRepository implements SyncRepository {
   }
 
   async listMonthlyPlans(): Promise<MonthlyPlan[]> {
-    return (await (await getDatabase()).getAll('monthlyPlans')).filter((item) => !item.deletedAt).sort((left, right) => left.month.localeCompare(right.month))
+    const database = await getDatabase(); const stored = await database.getAll('monthlyPlans'); const normalized = stored.map(normalizeMonthlyPlan)
+    await Promise.all(normalized.filter((item, index) => item.month !== stored[index].month).map((item) => database.put('monthlyPlans', item)))
+    return normalized.filter((item) => !item.deletedAt).sort((left, right) => left.month.localeCompare(right.month))
   }
 
   async createTransaction(input: TransactionInput, userId: UserId): Promise<Transaction> {
@@ -176,7 +180,7 @@ export class LocalFinanceRepository implements SyncRepository {
     const current = await database.get('budgets', id)
     if (current?.deletedAt) throw new Error('Este presupuesto ya no está disponible.')
     if (current) {
-      const updated = { ...current, amountCents, updatedAt: new Date().toISOString() }
+      const updated = { ...current, month, categoryId, amountCents, updatedAt: new Date().toISOString() }
       await this.writeLocalChange('budget', 'update', updated, current.version); return updated
     }
     const record = newRecord<Budget>({ id, month, categoryId, amountCents, createdBy: userId })
@@ -249,7 +253,7 @@ export class LocalFinanceRepository implements SyncRepository {
     const database = await getDatabase(); const id = deterministicRecordId('monthly-plan', month); const current = await database.get('monthlyPlans', id)
     if (current?.deletedAt) throw new Error('El plan mensual ya no está disponible.')
     if (current) {
-      const updated = { ...current, savingsAllocationCents, investmentAllocationCents, updatedAt: new Date().toISOString() }
+      const updated = { ...current, month, savingsAllocationCents, investmentAllocationCents, updatedAt: new Date().toISOString() }
       await this.writeLocalChange('monthlyPlan', 'update', updated, current.version); return updated
     }
     const record = newRecord<MonthlyPlan>({ id, month, savingsAllocationCents, investmentAllocationCents, createdBy: userId })
@@ -257,8 +261,17 @@ export class LocalFinanceRepository implements SyncRepository {
   }
 
   async pendingOperations(): Promise<SyncOperation[]> {
-    return (await (await getDatabase()).getAll('outbox')).filter((item) => !item.permanentFailure)
-      .map((item) => ({ ...item, entityType: item.entityType ?? 'transaction' }))
+    const database = await getDatabase(); const stored = await database.getAll('outbox'); const repaired: SyncOperation[] = []
+    for (const item of stored) {
+      const entityType = item.entityType ?? 'transaction'; const payload = normalizeEntity(entityType, item.payload)
+      const repairedMonth = (entityType === 'budget' || entityType === 'monthlyPlan') &&
+        (payload as Budget | MonthlyPlan).month !== (item.payload as Budget | MonthlyPlan).month
+      const operation = { ...item, entityType, payload, permanentFailure: repairedMonth ? false : item.permanentFailure,
+        lastError: repairedMonth ? null : item.lastError }
+      if (repairedMonth) await database.put('outbox', operation)
+      repaired.push(operation)
+    }
+    return repaired.filter((item) => !item.permanentFailure)
       .sort((left, right) => left.localSequence - right.localSequence)
   }
 
@@ -305,9 +318,9 @@ export class LocalFinanceRepository implements SyncRepository {
         else if (entityType === 'account') await transaction.objectStore('accounts').put(result.record as Account)
         else if (entityType === 'category') await transaction.objectStore('categories').put(result.record as Category)
         else if (entityType === 'recurringRule') await transaction.objectStore('recurringRules').put(result.record as RecurringRule)
-        else if (entityType === 'budget') await transaction.objectStore('budgets').put(result.record as Budget)
+        else if (entityType === 'budget') await transaction.objectStore('budgets').put(normalizeBudget(result.record as Budget))
         else if (entityType === 'plannedItem') await transaction.objectStore('plannedItems').put(result.record as PlannedItem)
-        else await transaction.objectStore('monthlyPlans').put(result.record as MonthlyPlan)
+        else await transaction.objectStore('monthlyPlans').put(normalizeMonthlyPlan(result.record as MonthlyPlan))
       }
     }
     const remainingOperations = (await transaction.objectStore('outbox').getAll()).sort((left, right) => left.localSequence - right.localSequence)
@@ -317,9 +330,9 @@ export class LocalFinanceRepository implements SyncRepository {
       else if (entityType === 'account') await transaction.objectStore('accounts').put(payload as Account)
       else if (entityType === 'category') await transaction.objectStore('categories').put(payload as Category)
       else if (entityType === 'recurringRule') await transaction.objectStore('recurringRules').put(payload as RecurringRule)
-      else if (entityType === 'budget') await transaction.objectStore('budgets').put(payload as Budget)
+      else if (entityType === 'budget') await transaction.objectStore('budgets').put(normalizeBudget(payload as Budget))
       else if (entityType === 'plannedItem') await transaction.objectStore('plannedItems').put(payload as PlannedItem)
-      else await transaction.objectStore('monthlyPlans').put(payload as MonthlyPlan)
+      else await transaction.objectStore('monthlyPlans').put(normalizeMonthlyPlan(payload as MonthlyPlan))
     }
     await transaction.done
   }
@@ -445,7 +458,16 @@ function normalizeTransaction(transaction: Transaction): Transaction {
 }
 
 function normalizeEntity(entityType: EntityType, entity: SyncEntity): SyncEntity {
-  return entityType === 'transaction' ? normalizeTransaction(entity as Transaction) : entity
+  return entityType === 'transaction' ? normalizeTransaction(entity as Transaction)
+    : entityType === 'budget' ? normalizeBudget(entity as Budget)
+      : entityType === 'monthlyPlan' ? normalizeMonthlyPlan(entity as MonthlyPlan) : entity
+}
+
+function normalizeBudget(budget: Budget): Budget { return { ...budget, month: normalizeMonthValue(budget.month) } }
+function normalizeMonthlyPlan(plan: MonthlyPlan): MonthlyPlan { return { ...plan, month: normalizeMonthValue(plan.month) } }
+function normalizeMonthValue(value: string): string {
+  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return value
+  return normalizeDateOnly(value)?.slice(0, 7) ?? value
 }
 
 function storeName(entityType: EntityType): 'transactions' | 'accounts' | 'categories' | 'recurringRules' | 'budgets' | 'plannedItems' | 'monthlyPlans' {
