@@ -149,6 +149,13 @@ Estado: **hotfix de borrado implementado y desplegado; pendiente de aceptación 
 - Backend: `migratePhase3` completada; implementación pública actualizada a versión 4 y health check `3.0.1-phase3` verificado.
 - Pendiente: sincronizar ambos iPhone sin borrar los datos locales de Safari para enviar los tombstones recuperados.
 
+### Incidente de ajustes negativos en iPhone — 2026-08-15
+
+- Observación real: el teclado decimal de iOS no ofrece el carácter `-`, por lo que no se podía reducir el saldo desde el formulario de ajuste.
+- Hotfix PWA `3.0.2`: selector explícito `+ Sumar saldo` / `− Restar saldo`; el campo conserva teclado decimal y el signo se aplica en la frontera de UI antes de persistir céntimos enteros.
+- Validación local: lint y typecheck verdes, 11 archivos y 58 tests verdes, y build PWA con 7 recursos precacheados.
+- Pendiente: CI/Pages y comprobación en ambos iPhone de un ajuste positivo y otro negativo.
+
 ## Fases siguientes — no iniciadas
 
 - **Fase 4:** reglas recurrentes y ocurrencias idempotentes.

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { localDateOnly } from '../domain/dates'
-import { formatEuro, parseEuroToCents, parseSignedEuroToCents } from '../domain/money'
+import { formatEuro, parseEuroToCents } from '../domain/money'
 import type { Account, Category, Transaction, TransactionInput, TransactionKind } from '../domain/types'
 
 interface Props {
@@ -16,7 +16,8 @@ interface Props {
 export function TransactionForm({ transaction, initialKind, initialAccountId, accounts, categories, onSave, onCancel }: Props) {
   const activeAccounts = useMemo(() => accounts.filter((item) => !item.archivedAt), [accounts])
   const [kind, setKind] = useState<TransactionKind>(transaction?.kind ?? initialKind ?? 'expense')
-  const [amount, setAmount] = useState(transaction ? (transaction.amountCents / 100).toFixed(2) : '')
+  const [amount, setAmount] = useState(transaction ? (Math.abs(transaction.amountCents) / 100).toFixed(2) : '')
+  const [adjustmentDirection, setAdjustmentDirection] = useState<'increase' | 'decrease'>(transaction?.kind === 'adjustment' && transaction.amountCents < 0 ? 'decrease' : 'increase')
   const [concept, setConcept] = useState(transaction?.concept ?? '')
   const [note, setNote] = useState(transaction?.note ?? '')
   const [date, setDate] = useState(transaction?.date ?? localDateOnly())
@@ -30,7 +31,8 @@ export function TransactionForm({ transaction, initialKind, initialAccountId, ac
 
   useEffect(() => {
     if (!transaction) return
-    setKind(transaction.kind); setAmount((transaction.amountCents / 100).toFixed(2)); setConcept(transaction.concept); setNote(transaction.note)
+    setKind(transaction.kind); setAmount((Math.abs(transaction.amountCents) / 100).toFixed(2)); setConcept(transaction.concept); setNote(transaction.note)
+    setAdjustmentDirection(transaction.kind === 'adjustment' && transaction.amountCents < 0 ? 'decrease' : 'increase')
     setDate(transaction.date); setAccountId(transaction.accountId ?? ''); setCategoryId(transaction.categoryId ?? '')
     setSourceAccountId(transaction.sourceAccountId ?? ''); setDestinationAccountId(transaction.destinationAccountId ?? '')
   }, [transaction])
@@ -42,7 +44,9 @@ export function TransactionForm({ transaction, initialKind, initialAccountId, ac
   async function submit(event: FormEvent) {
     event.preventDefault(); setError(''); setSaving(true)
     try {
-      await onSave({ kind, amountCents: kind === 'adjustment' ? parseSignedEuroToCents(amount) : parseEuroToCents(amount), concept: concept.trim(), note: note.trim(), date,
+      const absoluteAmountCents = parseEuroToCents(amount)
+      const amountCents = kind === 'adjustment' && adjustmentDirection === 'decrease' ? -absoluteAmountCents : absoluteAmountCents
+      await onSave({ kind, amountCents, concept: concept.trim(), note: note.trim(), date,
         accountId: kind === 'transfer' ? null : accountId || null,
         categoryId: kind === 'income' || kind === 'expense' ? categoryId || null : null,
         sourceAccountId: kind === 'transfer' ? sourceAccountId || null : null,
@@ -59,8 +63,12 @@ export function TransactionForm({ transaction, initialKind, initialAccountId, ac
       {([['expense', 'Gasto'], ['income', 'Ingreso'], ['transfer', 'Transferencia']] as const)
         .map(([value, label]) => <button key={value} type="button" aria-pressed={kind === value} onClick={() => setKind(value)}>{label}</button>)}
     </div>}
+    {kind === 'adjustment' && <div className="segmented adjustment-direction" role="group" aria-label="Efecto del ajuste">
+      <button type="button" aria-pressed={adjustmentDirection === 'increase'} onClick={() => setAdjustmentDirection('increase')}>+ Sumar saldo</button>
+      <button type="button" aria-pressed={adjustmentDirection === 'decrease'} onClick={() => setAdjustmentDirection('decrease')}>− Restar saldo</button>
+    </div>}
     <label htmlFor="movement-amount">Importe</label>
-    <div className="amount-field"><input id="movement-amount" inputMode="decimal" autoComplete="off" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder={kind === 'adjustment' ? '−50,00 o 50,00' : '0,00'} required /><span>€</span></div>
+    <div className="amount-field"><input id="movement-amount" inputMode="decimal" autoComplete="off" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0,00" required /><span>€</span></div>
     <label htmlFor="movement-concept">Concepto<input id="movement-concept" value={concept} onChange={(event) => setConcept(event.target.value)} maxLength={120} required placeholder="Compra, nómina…" /></label>
     {kind === 'transfer' ? <div className="field-grid">
       <Select label="Cuenta origen" value={sourceAccountId} onChange={setSourceAccountId} accounts={activeAccounts} />

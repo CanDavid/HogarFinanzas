@@ -42,13 +42,22 @@ describe('TransactionForm', () => {
       accountId: null, categoryId: null, sourceAccountId: 'account-1', destinationAccountId: 'account-2' })))
   })
 
-  it('allows a signed account adjustment without changing normal amount parsing', async () => {
+  it('offers an explicit negative adjustment without depending on the iPhone keyboard sign', async () => {
     const save = vi.fn().mockResolvedValue(undefined)
     render(<TransactionForm accounts={accounts} categories={categories} initialKind="adjustment" initialAccountId="account-1" onSave={save} />)
     expect(screen.getByText('Ajuste manual de saldo')).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('Importe'), { target: { value: '-10,50' } })
+    expect(screen.getByLabelText('Importe')).toHaveAttribute('inputmode', 'decimal')
+    fireEvent.click(screen.getByRole('button', { name: '− Restar saldo' }))
+    fireEvent.change(screen.getByLabelText('Importe'), { target: { value: '10,50' } })
     fireEvent.change(screen.getByLabelText('Concepto'), { target: { value: 'Corrección' } })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar movimiento' }))
     await vi.waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ kind: 'adjustment', amountCents: -1050, accountId: 'account-1' })))
+  })
+
+  it('preserves the negative direction when editing an adjustment', () => {
+    render(<TransactionForm accounts={accounts} categories={categories} transaction={{ ...base, id: 'adjustment-1', kind: 'adjustment', amountCents: -1050,
+      concept: 'Corrección', note: '', date: '2026-08-15', accountId: 'account-1', categoryId: null, sourceAccountId: null, destinationAccountId: null }} onSave={vi.fn()} />)
+    expect(screen.getByRole('button', { name: '− Restar saldo' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByLabelText('Importe')).toHaveValue('10.50')
   })
 })
