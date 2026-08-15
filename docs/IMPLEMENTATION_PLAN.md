@@ -104,7 +104,7 @@ El usuario autorizó expresamente cerrar el checkpoint y avanzar a Fase 3 el 202
 
 ## Fase 3 — Movimientos completos y navegación
 
-Estado: **hotfix de borrado implementado y publicado; pendiente de migración/despliegue Google y aceptación en iPhone — 2026-08-15**.
+Estado: **hotfix de borrado implementado y desplegado; pendiente de aceptación en ambos iPhone — 2026-08-15**.
 
 ### Alcance cerrado
 
@@ -135,7 +135,10 @@ Estado: **hotfix de borrado implementado y publicado; pendiente de migración/de
 - `npm run build`: verde; app shell y service worker generados con 7 recursos precacheados.
 - `PWA CI #9` y `Deploy GitHub Pages #9` sobre `cb43d4a`: verdes. La página y el bundle responden 200 y contienen la navegación de cinco áreas, búsqueda y estados de fases futuras.
 - Hotfix `a0a5a11`: `PWA CI #10` y `Deploy GitHub Pages #10` verdes. La página y el bundle publicados responden 200 y el artefacto contiene la recuperación automática de eliminaciones previamente rechazadas.
-- El health check real continúa respondiendo `2.0.0-phase2`; `migratePhase3`, el despliegue `3.0.1-phase3` y la matriz `IPHONE_PHASE3.md` quedan pendientes de las acciones externas del usuario.
+- `migratePhase3` ejecutada correctamente y Web App promovido mediante `clasp` a la versión inmutable 4, descripción `version3.0.1-phase3`, conservando la misma URL. El health check público responde HTTP 200 y `3.0.1-phase3`.
+- `clasp` queda autorizado localmente y configurado con archivos rastreados explícitos y un comando reproducible de despliegue. La credencial OAuth permanece fuera de Git.
+- `clasp 3.3.0` se ejecuta bajo demanda con `npx`, sin entrar en las dependencias ni el bundle; su árbol temporal emite un aviso upstream por `uuid@9`, mientras `npm audit` del proyecto permanece en 0 vulnerabilidades.
+- Queda pendiente repetir la convergencia de los borrados y completar la matriz `IPHONE_PHASE3.md` en ambos iPhone.
 
 ### Incidente de borrado compartido — 2026-08-15
 
@@ -143,7 +146,8 @@ Estado: **hotfix de borrado implementado y publicado; pendiente de migración/de
 - Causa: Apps Script validaba el payload completo del tombstone como un alta/edición. Los movimientos históricos sin cuenta/categoría —o con referencias archivadas— eran rechazados permanentemente antes de llegar a Sheets.
 - Hotfix `3.0.1-phase3`: los deletes validan solo su envoltorio, usan el registro canónico del servidor y respetan idempotencia antes de revalidar el payload. La PWA recupera automáticamente deletes que ya quedaron marcados como permanentes.
 - Publicación: commit `a0a5a11`, `PWA CI #10` y `Deploy GitHub Pages #10` verdes; bundle HTTPS verificado con la recuperación incluida.
-- Pendiente: desplegar Apps Script `3.0.1-phase3` y sincronizar ambos iPhone sin borrar los datos locales de Safari para enviar los tombstones recuperados.
+- Backend: `migratePhase3` completada; implementación pública actualizada a versión 4 y health check `3.0.1-phase3` verificado.
+- Pendiente: sincronizar ambos iPhone sin borrar los datos locales de Safari para enviar los tombstones recuperados.
 
 ## Fases siguientes — no iniciadas
 

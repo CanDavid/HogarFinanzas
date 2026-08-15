@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "apps-script:login": "npx --yes @google/clasp@3.3.0 login",
+    "apps-script:status": "npx --yes @google/clasp@3.3.0 -P apps-script -I apps-script status",
+    "apps-script:push": "npx --yes @google/clasp@3.3.0 -P apps-script -I apps-script push",
+    "apps-script:deploy": "node scripts/deploy-apps-script.mjs",
     "lint": "eslint .",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",

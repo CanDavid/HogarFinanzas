@@ -38,7 +38,13 @@ Se puede pegar la URL desde **Configuración del servidor** en la pantalla de lo
 
 ## 5. Actualizaciones
 
-Al cambiar `Code.gs`, crea una versión nueva de la implementación y vuelve a desplegarla manteniendo el mismo deployment. Confirma primero salud y login en Windows; después prueba Safari.
+La cuenta propietaria tiene habilitada la Apps Script API y `clasp` autorizado localmente. La herramienta oficial se ejecuta con `npx` fijada a la versión `3.3.0`, sin incorporarla al bundle ni a las dependencias del producto. La credencial se guarda fuera de Git; `.clasp.json` solo contiene el identificador público del proyecto.
+
+1. `npm run apps-script:status` muestra exclusivamente `Code.gs` y `appsscript.json` como archivos rastreados.
+2. `npm run apps-script:deploy -- versionX.Y.Z-phaseN` sube los archivos, crea una versión inmutable y actualiza el deployment existente conservando la misma URL `/exec`.
+3. Abre la URL y confirma el health check antes de probar la PWA.
+
+Si se pierde la autorización local, ejecuta `npm run apps-script:login` y completa OAuth con la cuenta propietaria. No se deben copiar `.clasprc.json`, tokens ni credenciales al repositorio.
 
 ### Migración a Fase 2
 
