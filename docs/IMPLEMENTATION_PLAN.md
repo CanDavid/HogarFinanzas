@@ -319,7 +319,7 @@ Estado: **implementada y desplegada; pendiente de validación en ambos iPhone �
 - Revisión local a 390 × 844 px: sin desbordamiento horizontal ni errores de consola en el arranque. Las vistas funcionales tienen además pruebas de renderizado a nivel de componente; la revisión real completa corresponde a la matriz de iPhone.
 - `migratePhase6` ejecutada correctamente desde el editor autorizado: conserva datos, clave y sesiones y deja el esquema 6 con 14 columnas en `Goals` y 11 en `GoalAllocations`.
 - Apps Script promovido a la versión inmutable 9, descripción `version6.0.0-phase6`, conservando la misma URL pública. Health check real: HTTP 200 y `6.0.0-phase6`.
-- La publicación de PWA, CI y Pages se registrará con el commit de Fase 6. La fase no se marcará completada hasta que David y Esther confirmen `IPHONE_PHASE6.md`.
+- Commit `a84aac9`: `PWA CI #25` y `Deploy GitHub Pages #25` verdes. La página y el bundle responden HTTP 200 y el artefacto publicado contiene Objetivos, Patrimonio y la retirada explícita. La fase no se marcará completada hasta que David y Esther confirmen `IPHONE_PHASE6.md`.
 
 ## Fases siguientes — no iniciadas
 
