@@ -221,6 +221,64 @@ form > button, .form-actions button { min-height: 2.8rem; padding: .65rem 1rem; 
 .placeholder-view .placeholder-icon { display: grid; place-items: center; width: 3.5rem; height: 3.5rem; margin: 0 auto 1rem; border-radius: 50%; color: #356556; background: #e0e9e2; font-size: 1.7rem; }
 .placeholder-view p { color: #53665f; }
 .placeholder-view small { color: #71817b; }
+.analysis-view { display: grid; gap: 1rem; padding-top: 1rem; }
+.analysis-period { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .25rem; padding: .25rem; border-radius: 1rem; background: #e4e9e2; }
+.analysis-period button { min-width: 0; min-height: 2.55rem; padding: .35rem .15rem; border: 0; border-radius: .75rem; color: #65756f; background: transparent; font-size: clamp(.61rem, 2.5vw, .73rem); font-weight: 750; }
+.analysis-period button[aria-pressed="true"] { color: #fff; background: #174f40; }
+.custom-period { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+.analysis-hero { display: grid; gap: .3rem; color: #fff; background: #173f35; }
+.analysis-hero > span { color: #d5e3de; font-size: .78rem; }
+.analysis-hero > strong { overflow-wrap: anywhere; font-size: clamp(2rem, 10vw, 3rem); }
+.analysis-hero > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; margin-top: .45rem; padding-top: .65rem; border-top: 1px solid #ffffff38; }
+.analysis-hero div span, .analysis-hero div strong { display: block; }
+.analysis-hero div span { color: #d5e3de; font-size: .68rem; }
+.analysis-hero div strong { margin-top: .15rem; }
+.analysis-section { display: grid; gap: .75rem; }
+.analysis-section h2 { margin: 0; font-size: 1.12rem; }
+.analysis-section > p:not(.empty) { margin: -.35rem 0 .1rem; color: #61716b; font-size: .76rem; line-height: 1.45; }
+.monthly-bars, .analysis-ranking, .savings-history, .analysis-goals, .analysis-insights, .budget-history ul, .net-worth-history ul { margin: 0; padding: 0; list-style: none; }
+.monthly-bars { display: grid; gap: .55rem; }
+.monthly-bars li { display: grid; grid-template-columns: 4.6rem minmax(2.5rem, 1fr) auto; gap: .5rem; align-items: center; }
+.monthly-bars span { color: #61716b; font-size: .7rem; text-transform: capitalize; }
+.monthly-bars strong { font-size: .75rem; white-space: nowrap; }
+.bar-track { overflow: hidden; height: .58rem; border-radius: 1rem; background: #e5e8e4; }
+.bar-track i { display: block; width: var(--bar-width); height: 100%; border-radius: inherit; background: #e15f3b; }
+.analysis-ranking { counter-reset: category; }
+.analysis-ranking li { counter-increment: category; display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: .5rem; align-items: center; padding: .7rem 0; border-bottom: 1px solid #dddcd4; }
+.analysis-ranking li::before { content: counter(category); color: #77857f; font-size: .68rem; }
+.analysis-ranking li:last-child { border-bottom: 0; }
+.analysis-ranking div { min-width: 0; }
+.analysis-ranking div strong, .analysis-ranking div small { display: block; }
+.analysis-ranking small { color: #687873; }
+.rank-icon { font-size: 1.15rem; }
+.analysis-ranking > li > strong { text-align: right; white-space: nowrap; }
+.budget-history { display: grid; gap: .5rem; }
+.budget-history details { border-top: 1px solid #dddcd4; }
+.budget-history summary { padding: .7rem 0; color: #31584d; font-weight: 800; text-transform: capitalize; cursor: pointer; }
+.budget-history li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .35rem .7rem; padding: .65rem 0; border-top: 1px solid #ecebe6; }
+.budget-history li div strong, .budget-history li div span { display: block; }
+.budget-history li div span, .budget-history li small { color: #687873; font-size: .7rem; }
+.budget-history progress { grid-column: 1 / -1; width: 100%; accent-color: #e15f3b; }
+.budget-history small { grid-column: 1 / -1; text-align: right; }
+.net-worth-history { display: grid; gap: .55rem; }
+.net-worth-history svg { width: 100%; height: auto; }
+.net-worth-history polyline { fill: none; stroke: #e15f3b; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.net-worth-history line { stroke: #ccd3ce; stroke-width: 1; }
+.net-worth-history li, .savings-history li { display: flex; justify-content: space-between; gap: .7rem; padding: .5rem 0; border-bottom: 1px solid #ecebe6; text-transform: capitalize; }
+.net-worth-history li span, .savings-history li span { color: #61716b; font-size: .72rem; }
+.analysis-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; }
+.analysis-metrics > div { min-width: 0; padding: .65rem; border-radius: .8rem; background: #f2f5f1; }
+.analysis-metrics span, .analysis-metrics strong { display: block; overflow-wrap: anywhere; }
+.analysis-metrics span { color: #687873; font-size: .63rem; }
+.analysis-metrics strong { margin-top: .2rem; font-size: .82rem; }
+.analysis-goals { display: grid; gap: .8rem; }
+.analysis-goals li { display: grid; gap: .35rem; }
+.analysis-goals li div { display: flex; justify-content: space-between; gap: .6rem; }
+.analysis-goals li div span, .analysis-goals small { color: #687873; font-size: .7rem; text-align: right; }
+.analysis-goals progress { width: 100%; accent-color: #e15f3b; }
+.analysis-insights { display: grid; gap: .65rem; }
+.analysis-insights li { position: relative; padding-left: 1.25rem; color: #41554e; line-height: 1.45; }
+.analysis-insights li::before { content: '↗'; position: absolute; left: 0; color: #d95332; font-weight: 900; }
 .settings-home { display: grid; gap: 1rem; padding-top: 1rem; }
 .session-card p { color: #52655e; }
 .bottom-nav { position: fixed; z-index: 10; left: 50%; bottom: 0; transform: translateX(-50%); display: grid; grid-template-columns: repeat(5, 1fr); width: min(100%, 46rem); padding: .45rem max(.35rem, env(safe-area-inset-left)) calc(.4rem + env(safe-area-inset-bottom)) max(.35rem, env(safe-area-inset-right)); border-top: 1px solid #d8ddd8; background: #fbfcf8f2; box-shadow: 0 -8px 28px #213a3020; backdrop-filter: blur(16px); }
@@ -241,6 +299,7 @@ footer { padding: 1rem 0 2rem; color: #71817b; text-align: center; font-size: .7
 .privacy { margin-top: 1rem; color: #6c7b76; text-align: center; font-size: .75rem; }
 .center { min-height: 100vh; display: grid; place-items: center; }
 @media (min-width: 42rem) { .summary { grid-template-columns: repeat(3, 1fr); } .summary .balance { grid-column: auto; } }
-@media (max-width: 23rem) { .home-links, .settings-links, .filter-grid { grid-template-columns: 1fr; } .metric-grid { gap: .35rem; } .movement-toolbar { grid-template-columns: minmax(0, 1fr) auto; } .filter-button { grid-row: 2; grid-column: 1 / -1; } .goal-actions { grid-template-columns: 1fr; } }
+@media (max-width: 23rem) { .home-links, .settings-links, .filter-grid { grid-template-columns: 1fr; } .metric-grid { gap: .35rem; } .movement-toolbar { grid-template-columns: minmax(0, 1fr) auto; } .filter-button { grid-row: 2; grid-column: 1 / -1; } .goal-actions { grid-template-columns: 1fr; } .analysis-period { grid-template-columns: repeat(3, 1fr); } .analysis-metrics { grid-template-columns: 1fr; } }
 @media (prefers-color-scheme: dark) { .closure-summary > div, .closure-checklist span { background: #18241f; } .closure-card p, .closure-form p, .closure-entry small { color: #aebfb8; } .closure-form fieldset { border-color: #30423c; } .closure-form legend, .closure-checklist b { color: #d4e1dc; } .closed-badge { color: #f1e3af; background: #564c2d; } }
 @media (prefers-color-scheme: dark) { :root { color: #eef5f1; background: #0f1815; } body { background: radial-gradient(circle at top right, #1d3c33, transparent 32rem), #0f1815; } .card, .summary div, .sync-banner, .filter-button, .recurrence-fields, .plan-metrics > div, .distribution-summary > div, .month-selector button, .goal-stats > div, .portfolio-metrics > div, .secondary-action { border-color: #30423c; background: #18241f; } .summary .balance, .segmented button[aria-pressed="true"], .section-nav button[aria-pressed="true"], .hero-card, .plan-hero, .goals-hero { background: #397864; } input, select, textarea { border-color: #40554d; color: #eef5f1; background: #111c18; } label, .login legend { color: #d4e1dc; } .eyebrow, .login .intro, .login summary, .privacy, .placeholder-view p, .session-card p, .management-intro, .recurrence-options small, .month-selector small, .phase-note, .goal-detail-hero > p, .goal-note, .portfolio-explanation p { color: #aebfb8; } .segmented, .section-nav, .settings-button, .goal-icon { background: #26352f; } .segmented button, .section-nav button, .settings-button, .back-button, .back-link, .close-button, .filter-button, .month-selector button, .secondary-action { color: #d0ddd8; } .movements li, .management li, .plan-items li, .budget-list li, .goal-list > li, .allocation-history li, .portfolio-accounts li { border-color: #2b3934; } .form-actions .secondary { color: #d4dfda; background: #2a3933; } .movement-group h3 { color: #aebfb8; background: #0f1815e8; } .bottom-nav { border-color: #2f4039; background: #14201cf2; } .bottom-nav button[aria-current="page"] { color: #dff4eb; background: #315f50; } .metric-grid span, .home-links span, .settings-links span, .plan-metrics span, .distribution-summary span, .goal-stats span, .portfolio-metrics span, .goal-main small, .allocation-history small, .portfolio-accounts small { color: #aebfb8; } .text-action { color: #8bc4af; } .recurring-badge { color: #dff4eb; background: #315f50; } .budget-main small.over-budget { color: #ff9b84; } }
+@media (prefers-color-scheme: dark) { .analysis-period, .analysis-metrics > div { background: #26352f; } .analysis-period button { color: #b9c7c2; } .analysis-hero { background: #397864; } .analysis-section > p:not(.empty), .monthly-bars span, .analysis-ranking small, .budget-history li div span, .budget-history li small, .net-worth-history li span, .savings-history li span, .analysis-metrics span, .analysis-goals li div span, .analysis-goals small { color: #aebfb8; } .analysis-ranking li, .budget-history details, .budget-history li, .net-worth-history li, .savings-history li { border-color: #2b3934; } .budget-history summary { color: #8bc4af; } .bar-track { background: #30423c; } .analysis-insights li { color: #d4e1dc; } }

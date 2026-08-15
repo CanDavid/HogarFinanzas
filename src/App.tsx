@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { AccountManager } from './components/AccountManager'
+import { AnalysisView } from './components/AnalysisView'
 import { BottomNavigation, type MainTab } from './components/BottomNavigation'
 import { CategoryManager } from './components/CategoryManager'
 import { GoalsView } from './components/GoalsView'
 import { HomeView } from './components/HomeView'
 import { MovementsView } from './components/MovementsView'
-import { PlaceholderView } from './components/PlaceholderView'
 import { PlanView } from './components/PlanView'
 import { PortfolioView } from './components/PortfolioView'
 import { RecurringManager } from './components/RecurringManager'
@@ -131,7 +131,7 @@ export default function App() {
         onArchive={(id) => afterLocalChange(() => repository.archiveGoal(id))}
         onRestore={(id) => afterLocalChange(() => repository.restoreGoal(id))}
         onAllocate={(goalId, input) => afterLocalChange(() => repository.createGoalAllocation(goalId, input, session.userId))} />}
-      {page === 'analysis' && <PlaceholderView area="Análisis" phase={8} description="Aquí se mostrarán tendencias mensuales, categorías y evolución del patrimonio." />}
+      {page === 'analysis' && <AnalysisView transactions={transactions} budgets={budgets} categories={categories} closures={monthlyClosures} goals={goals} allocations={goalAllocations} />}
       {page === 'settings' && <ConfigurationHome session={session} pendingCount={pendingCount} onAccounts={() => setPage('accounts')} onCategories={() => setPage('categories')} onRecurring={() => setPage('recurring')} onSync={() => void synchronize()} onLogout={() => void logout()} />}
       {page === 'portfolio' && <PortfolioView accounts={accounts} transactions={transactions} goals={goals} allocations={goalAllocations} onManageAccounts={() => setPage('accounts')} />}
       {page === 'accounts' && <AccountManager accounts={accounts} balances={portfolio.balances}

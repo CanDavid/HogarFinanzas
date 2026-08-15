@@ -333,7 +333,7 @@ El usuario confirmó el 2026-08-16 que toda la matriz de `IPHONE_PHASE6.md`, inc
 
 ## Fase 7 — Cierres, snapshots, reapertura y recierre
 
-Estado: **implementada y desplegada; pendiente de validación en ambos iPhone — 2026-08-16**.
+Estado: **completada — 2026-08-16**.
 
 ### Alcance
 
@@ -367,11 +367,38 @@ Estado: **implementada y desplegada; pendiente de validación en ambos iPhone �
 - Apps Script promovido a la versión inmutable 12, descripción `version7.0.0-phase7`, conservando la misma URL pública. Health check real: HTTP 200 y `7.0.0-phase7`.
 - Commit `d4cf67e`: `PWA CI #28` y `Deploy GitHub Pages #28` verdes. La página HTTPS publicada responde correctamente y arranca sin errores de consola.
 - Revisión completa del diff y `git diff --check` sin incidencias. El árbol actual y todo el historial no contienen patrones de claves API, tokens de GitHub ni claves privadas.
-- Pendiente exclusivamente de checkpoint: completar `IPHONE_PHASE7.md` en los dispositivos de David y Esther.
+- Validación externa completada: el usuario confirmó el 2026-08-16 que toda la matriz de `IPHONE_PHASE7.md` funciona correctamente en los dos iPhone y autorizó avanzar.
+
+## Fase 8 — Análisis y tendencias accesibles
+
+Estado: **implementada; pendiente de despliegue y validación en ambos iPhone — 2026-08-16**.
+
+### Alcance
+
+- Selector de 3, 6 y 12 meses, año actual o fechas personalizadas, con un máximo explícito de 120 meses.
+- Resultado, ingresos y gastos reales del periodo, excluyendo transferencias y ajustes.
+- Evolución mensual de gasto con barras e importes textuales; ranking por categoría con importe y porcentaje.
+- Presupuesto variable frente a gasto variable real por mes y categoría, con disponible o exceso expresado en texto.
+- Evolución del patrimonio basada exclusivamente en snapshots de meses cerrados, con línea e historial numérico.
+- Ahorro neto mensual y del periodo, neto acumulado del año y tasa orientativa calculada con `max(resultado, 0) / ingresos`.
+- Progreso acumulado de objetivos activos hasta el final del periodo y cambio producido dentro del intervalo.
+- Lecturas deterministas sobre gasto, excesos de presupuesto y patrimonio, sin IA ni recomendaciones personalizadas.
+- Cálculo puro y local sobre datos ya sincronizados: no requiere migración de IndexedDB, Sheets ni Apps Script.
+
+### Deliberadamente fuera
+
+- Exportación/importación, copias, recuperación, optimización y auditoría integral de accesibilidad, reservadas para Fase 9.
+- Predicciones, asesoramiento de inversión, precios de mercado o analítica de terceros.
+- Reconstruir patrimonio histórico sin un cierre real o mezclar gastos fijos con presupuestos variables.
+
+### Criterio de salida
+
+- Lint, typecheck, 116 tests, build, CI y Pages verdes; diff e historial sin secretos.
+- En ambos iPhone: periodos, cifras mensuales, categorías, presupuestos, cierres, ahorro, objetivos, modo offline y presentación validados mediante `IPHONE_PHASE8.md`.
+- La fase permanecerá pendiente hasta recibir el resultado real de esa guía.
 
 ## Fases siguientes — no iniciadas
 
-- **Fase 8:** análisis y tendencias accesibles.
 - **Fase 9:** robustez, rendimiento, accesibilidad, exportación/importación y copias.
 
 ## Registro de decisiones

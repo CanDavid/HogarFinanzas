@@ -24,7 +24,7 @@ React UI
 
 La UI siempre lee IndexedDB y escribe localmente antes de intentar red. El dominio no importa React, IndexedDB ni Google. Repositorio y transporte son sustituibles en tests.
 
-## 3. Modelo hasta Fase 7
+## 3. Modelo hasta Fase 8
 
 ```ts
 type UserId = 'david' | 'esther'
@@ -238,14 +238,16 @@ Apps Script revalida identidad, UUIDs, fechas, concepto e importe. Las operacion
 - Workbox precachea el app shell y proporciona fallback de navegación.
 - Actualización avisada antes de recargar; sin dependencia de Background Sync.
 - Mobile-first, safe areas, modo oscuro, zoom/tipos dinámicos, etiquetas y mensajes accesibles.
-- La barra inferior mantiene cinco áreas. Plan y Objetivos son funcionales; Análisis sigue como destino informativo hasta su fase.
+- La barra inferior mantiene cinco áreas funcionales. Análisis agrega localmente los registros ya sincronizados y no introduce almacenamiento ni llamadas remotas nuevas.
 - La búsqueda y los filtros se calculan localmente sobre IndexedDB; no generan consultas remotas. Incluyen periodo, tipo, cuenta, categoría, miembro y carácter recurrente.
 - Ajustes → Recurrentes permite crear, editar, pausar/reactivar y materializar próximas ocurrencias.
 - Plan permite navegar por mes, gestionar previstos manuales y recurrentes, presupuestos variables y distribución entre ahorro, inversión y remanente. La proyección aplica: ingresos reales + ingresos pendientes − gastos reales − gastos fijos pendientes − presupuesto variable restante. No duplica movimientos ya realizados. La tarjeta principal muestra la ecuación con sus cinco importes y el resumen distingue ingresos pendientes, gastos reales totales y presupuesto variable pendiente de gastar.
 - Objetivos permite crear, editar, completar/reabrir, archivar/desarchivar, aportar y retirar mediante controles explícitos aptos para el teclado de iPhone. Muestra progreso, restante/exceso, historial, ritmo y estimación cuando existen al menos dos meses con actividad.
 - Patrimonio separa total, liquidez, ahorro e inversión, muestra el desglose por cuenta y resta únicamente la reserva virtual para informar del patrimonio sin asignar.
 - Plan permite cerrar el mes actual o uno anterior tras revisar pendientes. Un mes cerrado bloquea movimientos, previstos, presupuestos y distribución hasta una reapertura explícita. El recierre conserva historial de autor/fecha y aumenta la revisión.
-- Inicio muestra la variación de patrimonio contra el último mes cerrado anterior. Los gráficos y tendencias siguen reservados para Fase 8.
+- Inicio muestra la variación de patrimonio contra el último mes cerrado anterior.
+- Análisis admite 3, 6 y 12 meses, año actual y fechas personalizadas. Calcula gasto mensual, ranking por categoría, presupuesto variable frente a gasto variable real, patrimonio de cierres, ahorro neto/tasa orientativa y progreso acumulado de objetivos activos.
+- Los gráficos conservan importes textuales accesibles. El patrimonio usa únicamente snapshots cerrados; las transferencias y ajustes se excluyen de ingresos y gastos; las lecturas son reglas deterministas locales y no recomendaciones.
 
 ## 9. Build y CI
 
@@ -263,7 +265,7 @@ npm run build
 
 ## 10. Pruebas y aceptación
 
-Automatización: céntimos; saldos, patrimonio, liquidez, transferencias y ajustes; archivado/reactivación; búsqueda, filtros y agrupación; notas; calendarios recurrentes; proyección mensual, presupuestos, omisiones y materialización de previstos; objetivos, asignaciones firmadas, reserva virtual, ritmo y patrimonio sin asignar; cierres, snapshots, bloqueo, reapertura, recierre y rollback de clientes desactualizados; UUID e idempotencia local/remota; navegación accesible; tombstones; persistencia y cola por entidad; cursor y sesión; router Apps Script; manifest/service worker.
+Automatización: céntimos; saldos, patrimonio, liquidez, transferencias y ajustes; archivado/reactivación; búsqueda, filtros y agrupación; notas; calendarios recurrentes; proyección mensual, presupuestos, omisiones y materialización de previstos; objetivos, asignaciones firmadas, reserva virtual, ritmo y patrimonio sin asignar; cierres, snapshots, bloqueo, reapertura, recierre y rollback de clientes desactualizados; periodos de análisis, agregaciones mensuales y por categoría, presupuesto variable, ahorro, cierres, objetivos e insights; UUID e idempotencia local/remota; navegación accesible; tombstones; persistencia y cola por entidad; cursor y sesión; router Apps Script; manifest/service worker.
 
 Aceptación real obligatoria:
 
@@ -277,7 +279,6 @@ Si Chromium o Safari no pueden leer la respuesta redirigida por política CORS, 
 
 ## 11. Fases futuras
 
-1. Fase 8: análisis.
-2. Fase 9: robustez, accesibilidad, exportación y copias.
+1. Fase 9: robustez, rendimiento, accesibilidad, exportación/importación y copias.
 
 No se anticipan capacidades futuras.
