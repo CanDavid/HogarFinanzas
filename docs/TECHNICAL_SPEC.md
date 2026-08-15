@@ -192,7 +192,7 @@ Apps Script revalida identidad, UUIDs, fechas, concepto e importe. Las operacion
 - La barra inferior mantiene cinco áreas. Plan ya es funcional; Objetivos y Análisis siguen como destinos informativos hasta sus fases.
 - La búsqueda y los filtros se calculan localmente sobre IndexedDB; no generan consultas remotas. Incluyen periodo, tipo, cuenta, categoría, miembro y carácter recurrente.
 - Ajustes → Recurrentes permite crear, editar, pausar/reactivar y materializar próximas ocurrencias.
-- Plan permite navegar por mes, gestionar previstos manuales y recurrentes, presupuestos variables y distribución entre ahorro, inversión y remanente. La proyección aplica: ingresos reales + ingresos pendientes − gastos reales − gastos fijos pendientes − presupuesto variable restante. No duplica movimientos ya realizados.
+- Plan permite navegar por mes, gestionar previstos manuales y recurrentes, presupuestos variables y distribución entre ahorro, inversión y remanente. La proyección aplica: ingresos reales + ingresos pendientes − gastos reales − gastos fijos pendientes − presupuesto variable restante. No duplica movimientos ya realizados. La tarjeta principal muestra la ecuación con sus cinco importes y el resumen distingue ingresos pendientes, gastos reales totales y presupuesto variable pendiente de gastar.
 
 ## 9. Build y CI
 

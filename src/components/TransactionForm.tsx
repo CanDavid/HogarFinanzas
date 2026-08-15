@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { localDateOnly } from '../domain/dates'
-import { formatEuro, parseEuroToCents } from '../domain/money'
+import { parseEuroToCents } from '../domain/money'
 import { nextRecurringDate } from '../domain/recurrence'
 import type { Account, Category, RecurrenceFrequency, RecurringRuleInput, Transaction, TransactionInput, TransactionKind } from '../domain/types'
 
@@ -100,7 +100,7 @@ export function TransactionForm({ transaction, initialKind, initialAccountId, ac
     <details className="optional-fields" open={Boolean(note)}><summary>Nota opcional</summary><label htmlFor="movement-note">Nota<textarea id="movement-note" value={note} onChange={(event) => setNote(event.target.value)} maxLength={500} rows={3} placeholder="Información adicional…" /></label></details>
     {error && <p className="error" role="alert">{error}</p>}
     <div className="form-actions">{onCancel && <button type="button" className="secondary" onClick={onCancel}>Cancelar</button>}
-      <button type="submit" disabled={saving}>{saving ? 'Guardando…' : transaction ? `Guardar ${formatEuro(transaction.amountCents)}` : 'Guardar movimiento'}</button></div>
+      <button type="submit" disabled={saving}>{saving ? 'Guardando…' : transaction ? 'Guardar cambios' : 'Guardar movimiento'}</button></div>
   </form>
 }
 

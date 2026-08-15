@@ -124,6 +124,7 @@ form > button, .form-actions button { min-height: 2.8rem; padding: .65rem 1rem; 
 .plan-hero { display: grid; gap: .2rem; color: #fff; background: #173f35; }
 .plan-hero span, .plan-hero small { opacity: .78; }
 .plan-hero > strong { font-size: clamp(2rem, 10vw, 3rem); }
+.projection-equation { margin: .55rem 0 0; padding-top: .55rem; border-top: 1px solid #ffffff38; color: #fff; font-size: .78rem; font-weight: 700; line-height: 1.45; }
 .negative { color: #b4472d !important; }
 .plan-hero .negative { color: #ffd0c4 !important; }
 .plan-metrics, .distribution-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }

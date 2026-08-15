@@ -54,4 +54,21 @@ describe('PlanView', () => {
     expect(screen.getByText(/Excedido en 210,00/)).toBeInTheDocument()
     expect(screen.getByRole('progressbar', { name: /Presupuesto excedido en 210,00.*121% consumido/ })).toHaveValue(100)
   })
+
+  it('shows every value used by the final-month estimate with unambiguous labels', () => {
+    const income: Transaction = { ...sync, id: 'income', kind: 'income', amountCents: 12_500, concept: 'Ingreso', note: '',
+      date: `${month}-15`, accountId: account.id, categoryId: 'income-category', sourceAccountId: null, destinationAccountId: null }
+    const fixedExpense: Transaction = { ...sync, id: 'fixed', kind: 'expense', amountCents: 275_000, concept: 'Fijo', note: '',
+      date: `${month}-15`, accountId: account.id, categoryId: category.id, sourceAccountId: null, destinationAccountId: null,
+      recurringRuleId: rule.id, recurringOccurrenceDate: `${month}-01` }
+    const variableExpense: Transaction = { ...sync, id: 'variable', kind: 'expense', amountCents: 161_000, concept: 'Variable', note: '',
+      date: `${month}-15`, accountId: account.id, categoryId: category.id, sourceAccountId: null, destinationAccountId: null }
+    render(<PlanView {...props()} transactions={[income, fixedExpense, variableExpense]}
+      budgets={[{ ...budget, amountCents: 344_300 }]} plannedItems={[]} />)
+
+    expect(screen.getByText(/−6068,00/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Cálculo: 125,00.*menos 4360,00.*menos 1833,00/)).toBeInTheDocument()
+    expect(screen.getByText('Gastos reales totales').nextSibling).toHaveTextContent('4360,00')
+    expect(screen.getByText('Variable pendiente de gastar').nextSibling).toHaveTextContent('1833,00')
+  })
 })

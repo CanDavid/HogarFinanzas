@@ -61,6 +61,21 @@ describe('TransactionForm', () => {
     expect(screen.getByLabelText('Importe')).toHaveValue('10.50')
   })
 
+  it('labels an edit without showing the previous amount and saves the current input', async () => {
+    const save = vi.fn().mockResolvedValue(undefined)
+    const transaction = { ...base, id: 'expense-1', kind: 'expense' as const, amountCents: 199_999_900,
+      concept: 'Compra', note: '', date: '2026-08-15', accountId: 'account-1', categoryId: 'category-1',
+      sourceAccountId: null, destinationAccountId: null }
+    render(<TransactionForm accounts={accounts} categories={categories} transaction={transaction} onSave={save} />)
+
+    expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /1\.999\.999/ })).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Importe'), { target: { value: '2000' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await vi.waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 200_000 })))
+  })
+
   it('creates the current movement together with a future recurrence', async () => {
     const save = vi.fn().mockResolvedValue(undefined)
     render(<TransactionForm accounts={accounts} categories={categories} onSave={save} />)

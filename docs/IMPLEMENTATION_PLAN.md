@@ -273,6 +273,14 @@ Estado: **implementada y desplegada; pendiente de validación en ambos iPhone �
 - Publicación: commit `14c38af`, `PWA CI #21` y `Deploy GitHub Pages #21` verdes. El bundle HTTPS contiene ambos mensajes.
 - Pendiente: comprobar esta última presentación en iPhone y confirmar el resto de la matriz de Fase 5 antes de iniciar Fase 6.
 
+### Claridad al editar y auditar la proyección — 2026-08-15
+
+- Observación real: al editar un movimiento, el botón conservaba el importe anterior aunque el campo ya tuviera otro valor; en el resumen mensual faltaban el total de gastos reales y los importes exactos de la fórmula, por lo que un resultado correcto parecía una doble contabilización.
+- Hotfix PWA `5.0.4`: el botón dice **Guardar cambios** y deja de presentar cifras desfasadas. La tarjeta de proyección muestra la ecuación completa y el resumen distingue ingresos pendientes, gastos reales totales, gastos fijos pendientes y presupuesto variable pendiente de gastar.
+- Verificación determinista: el caso `125 + 0 − 4.360 − 0 − 1.833` produce `−6.068 €`; los `4.360 €` son `2.750 €` fijos pagados más `1.610 €` variables registrados, por lo que no existe doble contabilización.
+- Validación local: lint, typecheck y build verdes; 16 archivos y 85 tests verdes, incluidos el cambio de un importe anterior de 1.999.999 € a 2.000 € y la operación completa de proyección. El build genera 7 recursos precacheados y no aparecen patrones de secretos en el árbol ni en el historial.
+- Publicación: pendiente de completar. La comprobación manual específica se añadió a `IPHONE_PHASE5.md`.
+
 ## Fases siguientes — no iniciadas
 
 - **Fase 6:** objetivos virtuales y patrimonio.

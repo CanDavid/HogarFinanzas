@@ -44,6 +44,27 @@ describe('monthly plan domain', () => {
       investmentAllocationCents: 3_000, unallocatedCents: 12_000 })
   })
 
+  it('explains the final-month estimate with real totals and the variable amount still available', () => {
+    const fixedRule = rule('expense', 250_000, 'Gasto fijo', '2026-08-01')
+    const transactions = [
+      transaction('income', 12_500),
+      transaction('expense', 275_000, { recurringRuleId: fixedRule.id, recurringOccurrenceDate: '2026-08-01' }),
+      transaction('expense', 121_000, { categoryId: 'food' }),
+      transaction('expense', 40_000, { categoryId: 'without-budget' }),
+    ]
+    const budgets = [
+      { ...common, id: crypto.randomUUID(), month: '2026-08', categoryId: 'car', amountCents: 33_300 },
+      { ...common, id: crypto.randomUUID(), month: '2026-08', categoryId: 'food', amountCents: 100_000 },
+      { ...common, id: crypto.randomUUID(), month: '2026-08', categoryId: 'shopping', amountCents: 150_000 },
+    ] satisfies Budget[]
+
+    const result = buildMonthlyPlan('2026-08', [fixedRule], [], transactions, budgets)
+
+    expect(result.summary).toMatchObject({ actualIncomeCents: 12_500, pendingIncomeCents: 0,
+      realizedFixedExpenseCents: 275_000, variableActualCents: 161_000, actualExpenseCents: 436_000,
+      pendingFixedExpenseCents: 0, variableRemainingCents: 183_300, projectedSurplusCents: -606_800 })
+  })
+
   it('rejects arithmetic outside the safe integer range', () => {
     expect(() => buildMonthlyPlan('2026-08', [], [], [transaction('income', Number.MAX_SAFE_INTEGER),
       transaction('income', 1)], [])).toThrow('rango seguro')

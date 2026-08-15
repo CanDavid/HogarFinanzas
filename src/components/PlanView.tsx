@@ -36,12 +36,17 @@ export function PlanView(props: Props) {
   function changeMonth(offset: number) { const [year, value] = month.split('-').map(Number); const date = new Date(year, value - 1 + offset, 1); setMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`); setAdding(false); setEditing(undefined) }
 
   return <div className="plan-view"><div className="month-selector"><button onClick={() => changeMonth(-1)} aria-label="Mes anterior">‹</button><div><strong>{monthLabel(month)}</strong><small>Abierto · cierre en Fase 7</small></div><button onClick={() => changeMonth(1)} aria-label="Mes siguiente">›</button></div>
-    <section className="card plan-hero"><span>Disponible estimado al final de mes</span><strong className={plan.summary.projectedSurplusCents < 0 ? 'negative' : ''}>{formatSigned(plan.summary.projectedSurplusCents)}</strong><small>Real + pendientes − presupuesto variable restante</small></section>
-    <section className="plan-metrics" aria-label="Resumen del plan"><Metric label="Ingresos previstos" value={plan.summary.plannedIncomeCents} /><Metric label="Ingresos reales" value={plan.summary.actualIncomeCents} />
-      <Metric label="Gastos fijos previstos" value={plan.summary.plannedFixedExpenseCents} /><Metric label="Gastos fijos realizados" value={plan.summary.realizedFixedExpenseCents} />
-      <Metric label="Presupuesto variable" value={plan.summary.variableBudgetCents} /><Metric label="Gasto variable real" value={plan.summary.variableActualCents} />
-      <Metric label="Fijos pendientes" value={plan.summary.pendingFixedExpenseCents} /><Metric label="Presupuesto restante" value={plan.summary.variableRemainingCents} />
-      <Metric label="Superávit previsto inicial" value={plan.summary.initialSurplusCents} signed /></section>
+    <section className="card plan-hero"><span>Disponible estimado al final de mes</span><strong className={plan.summary.projectedSurplusCents < 0 ? 'negative' : ''}>{formatSigned(plan.summary.projectedSurplusCents)}</strong>
+      <small>Ingresos reales + pendientes − gastos reales − fijos pendientes − variable por gastar</small>
+      <p className="projection-equation" aria-label={`Cálculo: ${formatEuro(plan.summary.actualIncomeCents)} de ingresos reales más ${formatEuro(plan.summary.pendingIncomeCents)} de ingresos pendientes, menos ${formatEuro(plan.summary.actualExpenseCents)} de gastos reales, menos ${formatEuro(plan.summary.pendingFixedExpenseCents)} de gastos fijos pendientes, menos ${formatEuro(plan.summary.variableRemainingCents)} de presupuesto variable por gastar`}>
+        {formatEuro(plan.summary.actualIncomeCents)} + {formatEuro(plan.summary.pendingIncomeCents)} − {formatEuro(plan.summary.actualExpenseCents)} − {formatEuro(plan.summary.pendingFixedExpenseCents)} − {formatEuro(plan.summary.variableRemainingCents)}
+      </p></section>
+    <section className="plan-metrics" aria-label="Resumen del plan"><Metric label="Ingresos planificados" value={plan.summary.plannedIncomeCents} /><Metric label="Ingresos reales" value={plan.summary.actualIncomeCents} />
+      <Metric label="Ingresos pendientes" value={plan.summary.pendingIncomeCents} /><Metric label="Gastos reales totales" value={plan.summary.actualExpenseCents} />
+      <Metric label="Gastos fijos planificados" value={plan.summary.plannedFixedExpenseCents} /><Metric label="Gastos fijos pagados" value={plan.summary.realizedFixedExpenseCents} />
+      <Metric label="Gastos fijos pendientes" value={plan.summary.pendingFixedExpenseCents} /><Metric label="Presupuesto variable del mes" value={plan.summary.variableBudgetCents} />
+      <Metric label="Gasto variable registrado" value={plan.summary.variableActualCents} /><Metric label="Variable pendiente de gastar" value={plan.summary.variableRemainingCents} />
+      <Metric label="Resultado previsto inicial" value={plan.summary.initialSurplusCents} signed /></section>
     <nav className="section-nav plan-nav" aria-label="Secciones del plan">{([['forecast', 'Previstos'], ['budgets', 'Presupuestos'], ['distribution', 'Distribución']] as const).map(([value, label]) => <button key={value} aria-pressed={section === value} onClick={() => setSection(value)}>{label}</button>)}</nav>
     {error && <p className="error" role="alert">{error}</p>}
     {section === 'forecast' && <ForecastSection planItems={plan.items} accounts={props.accounts} categories={props.categories} adding={adding} editing={editing}

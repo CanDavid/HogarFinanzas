@@ -1,6 +1,15 @@
 # Aceptación en iPhone — Fase 5
 
-Prerrequisitos: `migratePhase5` ejecutada, Web App `5.0.2-phase5` desplegada y PWA actualizada en ambos iPhone. Sincroniza ambos antes de empezar. Usa datos de prueba identificables y no compartas aquí la clave doméstica ni tokens.
+Prerrequisitos: `migratePhase5` ejecutada, Web App `5.0.2-phase5` desplegada y PWA `5.0.4` actualizada en ambos iPhone. Sincroniza ambos antes de empezar. Usa datos de prueba identificables y no compartas aquí la clave doméstica ni tokens.
+
+## 0 bis. Claridad de edición y proyección — PWA 5.0.4
+
+1. Edita un movimiento, cambia su importe y confirma que el botón dice **Guardar cambios**, sin mostrar el importe anterior.
+2. Guarda y comprueba que el movimiento conserva el importe escrito en el campo.
+3. En **Plan**, comprueba que la tarjeta muestra la operación numérica y que existen las métricas **Ingresos pendientes**, **Gastos reales totales** y **Variable pendiente de gastar**.
+4. Con los datos de la captura de prueba, verifica: `125 + 0 − 4.360 − 0 − 1.833 = −6.068 €`.
+
+Resultado esperado: el botón no presenta una cifra desfasada y todos los términos usados para el disponible estimado pueden comprobarse directamente en pantalla.
 
 ## 0. Regresión del hotfix 5.0.2
 
