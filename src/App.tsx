@@ -5,10 +5,11 @@ import { CategoryManager } from './components/CategoryManager'
 import { HomeView } from './components/HomeView'
 import { MovementsView } from './components/MovementsView'
 import { PlaceholderView } from './components/PlaceholderView'
+import { PlanView } from './components/PlanView'
 import { RecurringManager } from './components/RecurringManager'
 import { LocalFinanceRepository } from './data/localFinanceRepository'
 import { calculatePortfolio } from './domain/finance'
-import type { Account, Category, RecurringRule, RecurringRuleInput, Session, Transaction, TransactionInput, TransactionKind, UserId } from './domain/types'
+import type { Account, Budget, Category, MonthlyPlan, PlannedItem, RecurringRule, RecurringRuleInput, Session, Transaction, TransactionInput, TransactionKind, UserId } from './domain/types'
 import { AppsScriptClient } from './services/appsScriptClient'
 import { SyncEngine } from './services/syncEngine'
 import './styles.css'
@@ -23,6 +24,9 @@ export default function App() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [recurringRules, setRecurringRules] = useState<RecurringRule[]>([])
+  const [budgets, setBudgets] = useState<Budget[]>([])
+  const [plannedItems, setPlannedItems] = useState<PlannedItem[]>([])
+  const [monthlyPlans, setMonthlyPlans] = useState<MonthlyPlan[]>([])
   const [session, setSession] = useState<Session | null>(null)
   const [page, setPage] = useState<Page>('home')
   const [movementIntent, setMovementIntent] = useState<MovementIntent>({ key: 0, mode: 'list' })
@@ -33,10 +37,12 @@ export default function App() {
   const [online, setOnline] = useState(navigator.onLine)
 
   const refreshLocal = useCallback(async () => {
-    const [items, accountItems, categoryItems, ruleItems, pending, failed] = await Promise.all([
-      repository.listTransactions(), repository.listAccounts(), repository.listCategories(), repository.listRecurringRules(), repository.pendingOperations(), repository.failedOperations(),
+    const [items, accountItems, categoryItems, ruleItems, budgetItems, planItems, monthlyItems, pending, failed] = await Promise.all([
+      repository.listTransactions(), repository.listAccounts(), repository.listCategories(), repository.listRecurringRules(),
+      repository.listBudgets(), repository.listPlannedItems(), repository.listMonthlyPlans(), repository.pendingOperations(), repository.failedOperations(),
     ])
-    setTransactions(items); setAccounts(accountItems); setCategories(categoryItems); setRecurringRules(ruleItems); setPendingCount(pending.length)
+    setTransactions(items); setAccounts(accountItems); setCategories(categoryItems); setRecurringRules(ruleItems)
+    setBudgets(budgetItems); setPlannedItems(planItems); setMonthlyPlans(monthlyItems); setPendingCount(pending.length)
     if (failed.length > 0) { setSyncState('error'); setSyncMessage(`${failed.length} cambio${failed.length === 1 ? '' : 's'} necesita revisión`) }
   }, [])
 
@@ -79,7 +85,15 @@ export default function App() {
       <button className={`sync-banner ${syncState}`} onClick={() => void synchronize()} disabled={syncState === 'syncing'}><span aria-hidden="true">{online ? '●' : '○'}</span><span>{syncMessage}{pendingCount ? ` · ${pendingCount} pendientes` : ''}</span><span aria-hidden="true">↻</span></button>
       {page === 'home' && <HomeView transactions={transactions} accounts={accounts} categories={categories} onAddMovement={() => openMovements('add')} onOpenMovements={() => openMovements('list')} onOpenAccounts={() => setPage('accounts')} onOpenCategories={() => setPage('categories')} />}
       {page === 'movements' && <MovementsView key={movementIntent.key} transactions={transactions} accounts={accounts} categories={categories} startAdding={movementIntent.mode === 'add'} initialKind={movementIntent.initialKind} initialAccountId={movementIntent.initialAccountId} onSave={save} onDelete={remove} />}
-      {page === 'plan' && <PlaceholderView area="Plan mensual" phase={5} description="Aquí aparecerán los ingresos y gastos previstos, presupuestos y la proyección de final de mes." />}
+      {page === 'plan' && <PlanView transactions={transactions} rules={recurringRules} plannedItems={plannedItems} budgets={budgets} monthlyPlans={monthlyPlans} accounts={accounts} categories={categories}
+        onCreateItem={(input) => afterLocalChange(() => repository.createPlannedItem(input, session.userId))}
+        onUpdateItem={(id, input) => afterLocalChange(() => repository.updatePlannedItem(id, input))}
+        onDeleteItem={(id) => afterLocalChange(() => repository.deletePlannedItem(id))}
+        onSetItemStatus={(id, status) => afterLocalChange(() => repository.setPlannedItemStatus(id, status))}
+        onSetRecurringStatus={(id, date, status) => afterLocalChange(() => repository.setRecurringOccurrenceStatus(id, date, status, session.userId))}
+        onMaterialize={(item) => afterLocalChange(() => item.source === 'recurring' ? repository.materializeRecurringOccurrence(item.recurringRuleId!, item.date, session.userId) : repository.materializePlannedItem(item.id, session.userId))}
+        onSetBudget={(month, categoryId, amount) => afterLocalChange(() => repository.setBudget(month, categoryId, amount, session.userId))}
+        onSetDistribution={(month, savings, investment) => afterLocalChange(() => repository.setMonthlyPlan(month, savings, investment, session.userId))} />}
       {page === 'goals' && <PlaceholderView area="Objetivos" phase={6} description="Aquí podréis reservar virtualmente dinero para viajes, ahorro u otras metas sin alterar el patrimonio." />}
       {page === 'analysis' && <PlaceholderView area="Análisis" phase={8} description="Aquí se mostrarán tendencias mensuales, categorías y evolución del patrimonio." />}
       {page === 'settings' && <ConfigurationHome session={session} pendingCount={pendingCount} onAccounts={() => setPage('accounts')} onCategories={() => setPage('categories')} onRecurring={() => setPage('recurring')} onSync={() => void synchronize()} onLogout={() => void logout()} />}

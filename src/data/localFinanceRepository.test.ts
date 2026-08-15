@@ -91,6 +91,43 @@ describe('LocalFinanceRepository', () => {
     expect(await repository.listTransactions()).toHaveLength(2)
     expect(await repository.pendingOperations()).toHaveLength(4)
   })
+
+  it('upserts deterministic monthly budgets and distribution offline', async () => {
+    const repository = new LocalFinanceRepository()
+    const firstBudget = await repository.setBudget('2026-08', 'food', 20_000, 'david')
+    const updatedBudget = await repository.setBudget('2026-08', 'food', 25_000, 'esther')
+    const firstPlan = await repository.setMonthlyPlan('2026-08', 5_000, 3_000, 'david')
+    const updatedPlan = await repository.setMonthlyPlan('2026-08', 6_000, 4_000, 'esther')
+
+    expect(updatedBudget).toMatchObject({ id: firstBudget.id, amountCents: 25_000 })
+    expect(updatedPlan).toMatchObject({ id: firstPlan.id, savingsAllocationCents: 6_000, investmentAllocationCents: 4_000 })
+    expect(await repository.listBudgets()).toHaveLength(1)
+    expect(await repository.listMonthlyPlans()).toHaveLength(1)
+    expect((await repository.pendingOperations()).map((item) => item.kind)).toEqual(['create', 'update', 'create', 'update'])
+  })
+
+  it('persists manual planned items and materializes them idempotently', async () => {
+    const repository = new LocalFinanceRepository()
+    const item = await repository.createPlannedItem({ kind: 'expense', amountCents: 4_250, concept: 'Seguro puntual', note: '',
+      date: '2026-08-20', accountId: 'account-1', categoryId: 'category-1' }, 'david')
+    const reopened = new LocalFinanceRepository()
+    expect((await reopened.listPlannedItems())[0]).toEqual(item)
+    const first = await reopened.materializePlannedItem(item.id, 'esther')
+    const repeated = await reopened.materializePlannedItem(item.id, 'david')
+    expect(repeated.id).toBe(first.id)
+    expect(first).toMatchObject({ plannedItemId: item.id, amountCents: 4_250 })
+    expect(await reopened.listTransactions()).toHaveLength(1)
+  })
+
+  it('stores one deterministic omission per recurring occurrence and can reactivate it', async () => {
+    const repository = new LocalFinanceRepository()
+    const rule = await repository.createRecurringRule({ kind: 'expense', amountCents: 1_200, concept: 'Suscripción', note: '',
+      accountId: 'account-1', categoryId: 'category-1', frequency: 'monthly', startDate: '2026-08-15', endDate: null }, 'david')
+    const omitted = await repository.setRecurringOccurrenceStatus(rule.id, '2026-08-15', 'omitted', 'david')
+    const active = await repository.setRecurringOccurrenceStatus(rule.id, '2026-08-15', 'pending', 'esther')
+    expect(active).toMatchObject({ id: omitted.id, status: 'pending', source: 'recurring' })
+    expect(await repository.listPlannedItems()).toHaveLength(1)
+  })
 })
 
 function input(kind: 'income' | 'expense', amountCents: number) {

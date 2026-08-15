@@ -1,9 +1,9 @@
 import { normalizeDateOnly } from '../domain/dates'
 import { assertMoneyCents } from '../domain/money'
-import { occurrenceTransactionId } from '../domain/recurrence'
+import { deterministicRecordId, occurrenceTransactionId } from '../domain/recurrence'
 import type {
-  Account, AccountInput, Category, CategoryInput, EntityType, OperationResult, RecurringRule, RecurringRuleInput,
-  Session, SyncChange, SyncEntity, SyncOperation, SyncRepository, Transaction, TransactionInput, UserId,
+  Account, AccountInput, Budget, Category, CategoryInput, EntityType, MonthlyPlan, OperationResult, PlannedItem, PlannedItemInput,
+  RecurringRule, RecurringRuleInput, Session, SyncChange, SyncEntity, SyncOperation, SyncRepository, Transaction, TransactionInput, UserId,
 } from '../domain/types'
 import { getDatabase, type StoredMeta } from './database'
 
@@ -37,6 +37,20 @@ export class LocalFinanceRepository implements SyncRepository {
     const database = await getDatabase()
     return (await database.getAll('recurringRules')).filter((item) => !item.deletedAt)
       .sort((left, right) => left.active === right.active ? left.startDate.localeCompare(right.startDate) : left.active ? -1 : 1)
+  }
+
+  async listBudgets(): Promise<Budget[]> {
+    return (await (await getDatabase()).getAll('budgets')).filter((item) => !item.deletedAt)
+      .sort((left, right) => left.month.localeCompare(right.month) || left.categoryId.localeCompare(right.categoryId))
+  }
+
+  async listPlannedItems(): Promise<PlannedItem[]> {
+    return (await (await getDatabase()).getAll('plannedItems')).filter((item) => !item.deletedAt)
+      .sort((left, right) => left.date.localeCompare(right.date) || left.concept.localeCompare(right.concept))
+  }
+
+  async listMonthlyPlans(): Promise<MonthlyPlan[]> {
+    return (await (await getDatabase()).getAll('monthlyPlans')).filter((item) => !item.deletedAt).sort((left, right) => left.month.localeCompare(right.month))
   }
 
   async createTransaction(input: TransactionInput, userId: UserId): Promise<Transaction> {
@@ -155,6 +169,93 @@ export class LocalFinanceRepository implements SyncRepository {
     return record
   }
 
+  async setBudget(month: string, categoryId: string, amountCents: number, userId: UserId): Promise<Budget> {
+    validateMonth(month); assertMoneyCents(amountCents)
+    if (amountCents < 0 || !categoryId) throw new Error('El presupuesto no es válido.')
+    const database = await getDatabase(); const id = deterministicRecordId('budget', `${month}:${categoryId}`)
+    const current = await database.get('budgets', id)
+    if (current?.deletedAt) throw new Error('Este presupuesto ya no está disponible.')
+    if (current) {
+      const updated = { ...current, amountCents, updatedAt: new Date().toISOString() }
+      await this.writeLocalChange('budget', 'update', updated, current.version); return updated
+    }
+    const record = newRecord<Budget>({ id, month, categoryId, amountCents, createdBy: userId })
+    await this.writeLocalChange('budget', 'create', record, 0); return record
+  }
+
+  async createPlannedItem(input: PlannedItemInput, userId: UserId): Promise<PlannedItem> {
+    validatePlannedItemInput(input)
+    const record = newRecord<PlannedItem>({ ...input, source: 'manual', recurringRuleId: null, status: 'pending', createdBy: userId })
+    await this.writeLocalChange('plannedItem', 'create', record, 0); return record
+  }
+
+  async updatePlannedItem(id: string, input: PlannedItemInput): Promise<PlannedItem> {
+    validatePlannedItemInput(input)
+    const database = await getDatabase(); const current = await database.get('plannedItems', id)
+    if (!current || current.deletedAt || current.source !== 'manual') throw new Error('El previsto ya no está disponible.')
+    const updated = { ...current, ...input, updatedAt: new Date().toISOString() }
+    await this.writeLocalChange('plannedItem', 'update', updated, current.version); return updated
+  }
+
+  async deletePlannedItem(id: string): Promise<void> {
+    const database = await getDatabase(); const current = await database.get('plannedItems', id)
+    if (!current || current.deletedAt || current.source !== 'manual') return
+    const now = new Date().toISOString()
+    await this.writeLocalChange('plannedItem', 'delete', { ...current, deletedAt: now, updatedAt: now }, current.version)
+  }
+
+  async setPlannedItemStatus(id: string, status: PlannedItem['status']): Promise<void> {
+    const database = await getDatabase(); const current = await database.get('plannedItems', id)
+    if (!current || current.deletedAt || current.status === status) return
+    const updated = { ...current, status, updatedAt: new Date().toISOString() }
+    await this.writeLocalChange('plannedItem', 'update', updated, current.version)
+  }
+
+  async setRecurringOccurrenceStatus(ruleId: string, date: string, status: PlannedItem['status'], userId: UserId): Promise<PlannedItem> {
+    const normalizedDate = normalizeDateOnly(date); if (!normalizedDate) throw new Error('La fecha prevista no es válida.')
+    const database = await getDatabase(); const rule = await database.get('recurringRules', ruleId)
+    if (!rule || rule.deletedAt) throw new Error('La recurrencia ya no está disponible.')
+    const id = deterministicRecordId('planned-recurring', `${ruleId}:${normalizedDate}`); const current = await database.get('plannedItems', id)
+    if (current) {
+      if (current.deletedAt) throw new Error('La ocurrencia ya no está disponible.')
+      const updated = { ...current, status, updatedAt: new Date().toISOString() }
+      await this.writeLocalChange('plannedItem', 'update', updated, current.version); return updated
+    }
+    const record = newRecord<PlannedItem>({ id, source: 'recurring', recurringRuleId: ruleId, kind: rule.kind,
+      amountCents: rule.amountCents, concept: rule.concept, note: rule.note, date: normalizedDate,
+      accountId: rule.accountId, categoryId: rule.categoryId, status, createdBy: userId })
+    await this.writeLocalChange('plannedItem', 'create', record, 0); return record
+  }
+
+  async materializePlannedItem(id: string, userId: UserId): Promise<Transaction> {
+    const database = await getDatabase(); const item = await database.get('plannedItems', id)
+    if (!item || item.deletedAt || item.source !== 'manual') throw new Error('El previsto ya no está disponible.')
+    if (item.status === 'omitted') throw new Error('Reactiva el previsto antes de registrarlo.')
+    const transactionId = deterministicRecordId('planned-transaction', id); const existing = await database.get('transactions', transactionId)
+    if (existing) {
+      if (existing.deletedAt) throw new Error('El movimiento asociado fue eliminado y no puede recrearse.')
+      return normalizeTransaction(existing)
+    }
+    const record = newRecord<Transaction>({ id: transactionId, kind: item.kind, amountCents: item.amountCents,
+      concept: item.concept, note: item.note, date: item.date, accountId: item.accountId, categoryId: item.categoryId,
+      sourceAccountId: null, destinationAccountId: null, recurringRuleId: null, recurringOccurrenceDate: null,
+      plannedItemId: item.id, createdBy: userId })
+    await this.writeLocalChange('transaction', 'create', record, 0); return record
+  }
+
+  async setMonthlyPlan(month: string, savingsAllocationCents: number, investmentAllocationCents: number, userId: UserId): Promise<MonthlyPlan> {
+    validateMonth(month); assertMoneyCents(savingsAllocationCents); assertMoneyCents(investmentAllocationCents)
+    if (savingsAllocationCents < 0 || investmentAllocationCents < 0) throw new Error('La distribución no admite importes negativos.')
+    const database = await getDatabase(); const id = deterministicRecordId('monthly-plan', month); const current = await database.get('monthlyPlans', id)
+    if (current?.deletedAt) throw new Error('El plan mensual ya no está disponible.')
+    if (current) {
+      const updated = { ...current, savingsAllocationCents, investmentAllocationCents, updatedAt: new Date().toISOString() }
+      await this.writeLocalChange('monthlyPlan', 'update', updated, current.version); return updated
+    }
+    const record = newRecord<MonthlyPlan>({ id, month, savingsAllocationCents, investmentAllocationCents, createdBy: userId })
+    await this.writeLocalChange('monthlyPlan', 'create', record, 0); return record
+  }
+
   async pendingOperations(): Promise<SyncOperation[]> {
     return (await (await getDatabase()).getAll('outbox')).filter((item) => !item.permanentFailure)
       .map((item) => ({ ...item, entityType: item.entityType ?? 'transaction' }))
@@ -188,7 +289,7 @@ export class LocalFinanceRepository implements SyncRepository {
 
   async applyOperationResults(results: OperationResult[]): Promise<void> {
     const database = await getDatabase()
-    const transaction = database.transaction(['outbox', 'transactions', 'accounts', 'categories', 'recurringRules'], 'readwrite')
+    const transaction = database.transaction(['outbox', 'transactions', 'accounts', 'categories', 'recurringRules', 'budgets', 'plannedItems', 'monthlyPlans'], 'readwrite')
     for (const result of results) {
       const operation = await transaction.objectStore('outbox').get(result.operationId)
       if (!operation) continue
@@ -203,7 +304,10 @@ export class LocalFinanceRepository implements SyncRepository {
         if (entityType === 'transaction') await transaction.objectStore('transactions').put(normalizeTransaction(result.record as Transaction))
         else if (entityType === 'account') await transaction.objectStore('accounts').put(result.record as Account)
         else if (entityType === 'category') await transaction.objectStore('categories').put(result.record as Category)
-        else await transaction.objectStore('recurringRules').put(result.record as RecurringRule)
+        else if (entityType === 'recurringRule') await transaction.objectStore('recurringRules').put(result.record as RecurringRule)
+        else if (entityType === 'budget') await transaction.objectStore('budgets').put(result.record as Budget)
+        else if (entityType === 'plannedItem') await transaction.objectStore('plannedItems').put(result.record as PlannedItem)
+        else await transaction.objectStore('monthlyPlans').put(result.record as MonthlyPlan)
       }
     }
     await transaction.done
@@ -211,7 +315,7 @@ export class LocalFinanceRepository implements SyncRepository {
 
   async mergeServerChanges(changes: SyncChange[]): Promise<void> {
     const database = await getDatabase()
-    const transaction = database.transaction(['transactions', 'accounts', 'categories', 'recurringRules'], 'readwrite')
+    const transaction = database.transaction(['transactions', 'accounts', 'categories', 'recurringRules', 'budgets', 'plannedItems', 'monthlyPlans'], 'readwrite')
     for (const incoming of changes) {
       const change = 'record' in incoming ? incoming : { entityType: 'transaction' as const, record: incoming as unknown as Transaction }
       const remote = normalizeEntity(change.entityType, change.record)
@@ -224,9 +328,18 @@ export class LocalFinanceRepository implements SyncRepository {
       } else if (change.entityType === 'category') {
         const record = remote as Category; const local = await transaction.objectStore('categories').get(record.id)
         if (!local || record.version >= local.version) await transaction.objectStore('categories').put(record)
-      } else {
+      } else if (change.entityType === 'recurringRule') {
         const record = remote as RecurringRule; const local = await transaction.objectStore('recurringRules').get(record.id)
         if (!local || record.version >= local.version) await transaction.objectStore('recurringRules').put(record)
+      } else if (change.entityType === 'budget') {
+        const record = remote as Budget; const local = await transaction.objectStore('budgets').get(record.id)
+        if (!local || record.version >= local.version) await transaction.objectStore('budgets').put(record)
+      } else if (change.entityType === 'plannedItem') {
+        const record = remote as PlannedItem; const local = await transaction.objectStore('plannedItems').get(record.id)
+        if (!local || record.version >= local.version) await transaction.objectStore('plannedItems').put(record)
+      } else {
+        const record = remote as MonthlyPlan; const local = await transaction.objectStore('monthlyPlans').get(record.id)
+        if (!local || record.version >= local.version) await transaction.objectStore('monthlyPlans').put(record)
       }
     }
     await transaction.done
@@ -270,9 +383,21 @@ export class LocalFinanceRepository implements SyncRepository {
       const transaction = database.transaction(['categories', 'outbox', 'meta'], 'readwrite')
       await queueLocalChange(transaction, entityType, kind, payload as Category, baseVersion)
       await transaction.done
-    } else {
+    } else if (entityType === 'recurringRule') {
       const transaction = database.transaction(['recurringRules', 'outbox', 'meta'], 'readwrite')
       await queueLocalChange(transaction, entityType, kind, payload as RecurringRule, baseVersion)
+      await transaction.done
+    } else if (entityType === 'budget') {
+      const transaction = database.transaction(['budgets', 'outbox', 'meta'], 'readwrite')
+      await queueLocalChange(transaction, entityType, kind, payload as Budget, baseVersion)
+      await transaction.done
+    } else if (entityType === 'plannedItem') {
+      const transaction = database.transaction(['plannedItems', 'outbox', 'meta'], 'readwrite')
+      await queueLocalChange(transaction, entityType, kind, payload as PlannedItem, baseVersion)
+      await transaction.done
+    } else {
+      const transaction = database.transaction(['monthlyPlans', 'outbox', 'meta'], 'readwrite')
+      await queueLocalChange(transaction, entityType, kind, payload as MonthlyPlan, baseVersion)
       await transaction.done
     }
   }
@@ -292,7 +417,8 @@ function newRecord<T extends SyncEntity>(values: Omit<T, keyof import('../domain
 function normalizeTransactionInput(input: TransactionInput, current?: Transaction): TransactionInput {
   return { ...input,
     recurringRuleId: input.recurringRuleId === undefined ? current?.recurringRuleId ?? null : input.recurringRuleId,
-    recurringOccurrenceDate: input.recurringOccurrenceDate === undefined ? current?.recurringOccurrenceDate ?? null : input.recurringOccurrenceDate }
+    recurringOccurrenceDate: input.recurringOccurrenceDate === undefined ? current?.recurringOccurrenceDate ?? null : input.recurringOccurrenceDate,
+    plannedItemId: input.plannedItemId === undefined ? current?.plannedItemId ?? null : input.plannedItemId }
 }
 
 function normalizeTransaction(transaction: Transaction): Transaction {
@@ -300,22 +426,24 @@ function normalizeTransaction(transaction: Transaction): Transaction {
     note: typeof transaction.note === 'string' ? transaction.note : '',
     accountId: transaction.accountId ?? null, categoryId: transaction.categoryId ?? null,
     sourceAccountId: transaction.sourceAccountId ?? null, destinationAccountId: transaction.destinationAccountId ?? null,
-    recurringRuleId: transaction.recurringRuleId ?? null, recurringOccurrenceDate: transaction.recurringOccurrenceDate ?? null }
+    recurringRuleId: transaction.recurringRuleId ?? null, recurringOccurrenceDate: transaction.recurringOccurrenceDate ?? null,
+    plannedItemId: transaction.plannedItemId ?? null }
 }
 
 function normalizeEntity(entityType: EntityType, entity: SyncEntity): SyncEntity {
   return entityType === 'transaction' ? normalizeTransaction(entity as Transaction) : entity
 }
 
-function storeName(entityType: EntityType): 'transactions' | 'accounts' | 'categories' | 'recurringRules' {
+function storeName(entityType: EntityType): 'transactions' | 'accounts' | 'categories' | 'recurringRules' | 'budgets' | 'plannedItems' | 'monthlyPlans' {
   return entityType === 'transaction' ? 'transactions' : entityType === 'account' ? 'accounts'
-    : entityType === 'category' ? 'categories' : 'recurringRules'
+    : entityType === 'category' ? 'categories' : entityType === 'recurringRule' ? 'recurringRules'
+      : entityType === 'budget' ? 'budgets' : entityType === 'plannedItem' ? 'plannedItems' : 'monthlyPlans'
 }
 
 async function queueLocalChange(transaction: {
   objectStore(name: 'meta'): { get(key: string): Promise<{ value: unknown } | undefined>; put(value: { key: string; value: unknown }): Promise<unknown> }
   objectStore(name: 'outbox'): { put(value: SyncOperation): Promise<unknown> }
-  objectStore(name: 'transactions' | 'accounts' | 'categories' | 'recurringRules'): { put(value: never): Promise<unknown> }
+  objectStore(name: 'transactions' | 'accounts' | 'categories' | 'recurringRules' | 'budgets' | 'plannedItems' | 'monthlyPlans'): { put(value: never): Promise<unknown> }
 }, entityType: EntityType, kind: SyncOperation['kind'], payload: SyncEntity, baseVersion: number) {
   const sequenceItem = await transaction.objectStore('meta').get('outboxSequence')
   const localSequence = Number(sequenceItem?.value ?? 0) + 1
@@ -358,4 +486,17 @@ function validateRecurringRuleInput(input: RecurringRuleInput): void {
   if (!['monthly', 'quarterly', 'annual'].includes(input.frequency)) throw new Error('La frecuencia no es válida.')
   if (!normalizeDateOnly(input.startDate)) throw new Error('La próxima fecha no es válida.')
   if (input.endDate && (!normalizeDateOnly(input.endDate) || input.endDate < input.startDate)) throw new Error('La fecha final no es válida.')
+}
+
+function validatePlannedItemInput(input: PlannedItemInput): void {
+  assertMoneyCents(input.amountCents)
+  if (input.amountCents <= 0) throw new Error('El importe previsto no es válido.')
+  if (!input.concept.trim()) throw new Error('El concepto previsto es obligatorio.')
+  if (typeof input.note !== 'string' || input.note.length > 500) throw new Error('La nota no es válida.')
+  if (!normalizeDateOnly(input.date)) throw new Error('La fecha prevista no es válida.')
+  if (!input.accountId || !input.categoryId) throw new Error('Selecciona cuenta y categoría.')
+}
+
+function validateMonth(month: string): void {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error('El mes no es válido.')
 }

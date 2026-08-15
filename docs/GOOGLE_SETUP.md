@@ -1,4 +1,4 @@
-# Configuración de Google — Fases 1 a 3
+# Configuración de Google — Fases 1 a 5
 
 Estas acciones requieren la cuenta Google que será propietaria de la hoja. No publiques la clave doméstica, tokens ni contenido de la hoja.
 
@@ -16,7 +16,7 @@ Estas acciones requieren la cuenta Google que será propietaria de la hoja. No p
 2. Elige **Hogar Finanzas → Inicializar o cambiar clave**.
 3. Introduce en el diálogo una clave doméstica única de al menos 10 caracteres y acepta.
 4. Autoriza el script cuando Google lo solicite.
-5. Verifica que se crearon las 11 pestañas y que `Users` contiene David y Esther.
+5. Verifica que se crearon las 13 pestañas y que `Users` contiene David y Esther.
 
 La clave no se copia en el código ni se guarda en una celda.
 
@@ -78,6 +78,18 @@ La automatización autorizada puede ejecutar `migratePhase4` desde el proyecto y
 5. Confirma que el health check devuelve `4.0.0-phase4` antes de crear recurrencias desde los iPhone.
 
 No ejecutes **Inicializar o cambiar clave**: `migratePhase4` conserva la clave, las sesiones y todos los datos existentes.
+
+### Migración a Fase 5
+
+La automatización autorizada puede ejecutar `migratePhase5` desde el editor y promover después la implementación con `npm run apps-script:deploy -- version5.0.0-phase5`. Si se realiza manualmente:
+
+1. Sustituye `Code.gs` por la versión de Fase 5 y guarda el proyecto.
+2. Recarga la hoja y ejecuta **Hogar Finanzas → Migrar a Fase 5**.
+3. Comprueba `schemaVersion: 5`, `transactionColumns: 19`, `budgetColumns: 10`, `plannedItemColumns: 17` y `monthlyPlanColumns: 10`.
+4. Verifica que existen `Budgets`, `PlannedItems` y `MonthlyPlans`; las filas previas de `Transactions` y el resto de hojas deben conservarse.
+5. Crea una versión nueva en la misma implementación y confirma que el health check devuelve `5.0.0-phase5` antes de usar Plan en los iPhone.
+
+No ejecutes **Inicializar o cambiar clave**: `migratePhase5` conserva la clave, las sesiones y todos los datos existentes.
 
 ## Diagnóstico seguro
 

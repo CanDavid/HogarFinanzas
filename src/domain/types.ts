@@ -3,7 +3,7 @@ export type TransactionKind = 'income' | 'expense' | 'transfer' | 'adjustment'
 export type AccountType = 'checking' | 'savings' | 'investment' | 'cash'
 export type CategoryKind = 'income' | 'expense'
 export type OperationKind = 'create' | 'update' | 'delete'
-export type EntityType = 'transaction' | 'account' | 'category' | 'recurringRule'
+export type EntityType = 'transaction' | 'account' | 'category' | 'recurringRule' | 'budget' | 'plannedItem' | 'monthlyPlan'
 export type RecurrenceFrequency = 'monthly' | 'quarterly' | 'annual'
 
 export interface SyncableRecord {
@@ -44,6 +44,7 @@ export interface Transaction extends SyncableRecord {
   destinationAccountId: string | null
   recurringRuleId?: string | null
   recurringOccurrenceDate?: string | null
+  plannedItemId?: string | null
 }
 
 export interface RecurringRule extends SyncableRecord {
@@ -59,7 +60,32 @@ export interface RecurringRule extends SyncableRecord {
   active: boolean
 }
 
-export type SyncEntity = Transaction | Account | Category | RecurringRule
+export interface Budget extends SyncableRecord {
+  month: string
+  categoryId: string
+  amountCents: number
+}
+
+export interface PlannedItem extends SyncableRecord {
+  source: 'manual' | 'recurring'
+  recurringRuleId: string | null
+  kind: 'income' | 'expense'
+  amountCents: number
+  concept: string
+  note: string
+  date: string
+  accountId: string
+  categoryId: string
+  status: 'pending' | 'omitted'
+}
+
+export interface MonthlyPlan extends SyncableRecord {
+  month: string
+  savingsAllocationCents: number
+  investmentAllocationCents: number
+}
+
+export type SyncEntity = Transaction | Account | Category | RecurringRule | Budget | PlannedItem | MonthlyPlan
 
 export interface SyncOperation {
   operationId: string
@@ -102,17 +128,22 @@ export interface TransactionInput {
   destinationAccountId: string | null
   recurringRuleId?: string | null
   recurringOccurrenceDate?: string | null
+  plannedItemId?: string | null
 }
 
 export type AccountInput = Pick<Account, 'name' | 'type' | 'initialBalanceCents' | 'includeInNetWorth' | 'includeInLiquidity'>
 export type CategoryInput = Pick<Category, 'name' | 'kind' | 'icon'>
 export type RecurringRuleInput = Pick<RecurringRule, 'kind' | 'amountCents' | 'concept' | 'note' | 'accountId' | 'categoryId' | 'frequency' | 'startDate' | 'endDate'>
+export type PlannedItemInput = Pick<PlannedItem, 'kind' | 'amountCents' | 'concept' | 'note' | 'date' | 'accountId' | 'categoryId'>
 
 export interface SyncRepository {
   listTransactions(): Promise<Transaction[]>
   listAccounts(): Promise<Account[]>
   listCategories(): Promise<Category[]>
   listRecurringRules(): Promise<RecurringRule[]>
+  listBudgets(): Promise<Budget[]>
+  listPlannedItems(): Promise<PlannedItem[]>
+  listMonthlyPlans(): Promise<MonthlyPlan[]>
   createTransaction(input: TransactionInput, userId: UserId): Promise<Transaction>
   updateTransaction(id: string, input: TransactionInput): Promise<Transaction>
   deleteTransaction(id: string): Promise<void>
@@ -129,6 +160,14 @@ export interface SyncRepository {
   setRecurringRuleActive(id: string, active: boolean): Promise<void>
   createTransactionWithRecurrence(input: TransactionInput, recurrence: RecurringRuleInput, userId: UserId): Promise<Transaction>
   materializeRecurringOccurrence(ruleId: string, date: string, userId: UserId): Promise<Transaction>
+  setBudget(month: string, categoryId: string, amountCents: number, userId: UserId): Promise<Budget>
+  createPlannedItem(input: PlannedItemInput, userId: UserId): Promise<PlannedItem>
+  updatePlannedItem(id: string, input: PlannedItemInput): Promise<PlannedItem>
+  deletePlannedItem(id: string): Promise<void>
+  setPlannedItemStatus(id: string, status: PlannedItem['status']): Promise<void>
+  setRecurringOccurrenceStatus(ruleId: string, date: string, status: PlannedItem['status'], userId: UserId): Promise<PlannedItem>
+  materializePlannedItem(id: string, userId: UserId): Promise<Transaction>
+  setMonthlyPlan(month: string, savingsAllocationCents: number, investmentAllocationCents: number, userId: UserId): Promise<MonthlyPlan>
   pendingOperations(): Promise<SyncOperation[]>
   failedOperations(): Promise<SyncOperation[]>
   recoverFailedDeletions(): Promise<number>

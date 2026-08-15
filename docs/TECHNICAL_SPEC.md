@@ -24,7 +24,7 @@ React UI
 
 La UI siempre lee IndexedDB y escribe localmente antes de intentar red. El dominio no importa React, IndexedDB ni Google. Repositorio y transporte son sustituibles en tests.
 
-## 3. Modelo hasta Fase 4
+## 3. Modelo hasta Fase 5
 
 ```ts
 type UserId = 'david' | 'esther'
@@ -49,6 +49,7 @@ interface Transaction {
   destinationAccountId: string | null
   recurringRuleId: string | null
   recurringOccurrenceDate: string | null
+  plannedItemId: string | null
 }
 
 interface RecurringRule {
@@ -82,6 +83,34 @@ interface Category {
   icon: string
   archivedAt: string | null
 }
+
+interface Budget {
+  // metadatos SyncableRecord
+  month: string // YYYY-MM
+  categoryId: string
+  amountCents: number
+}
+
+interface PlannedItem {
+  // metadatos SyncableRecord
+  source: 'manual' | 'recurring'
+  recurringRuleId: string | null
+  kind: 'income' | 'expense'
+  amountCents: number
+  concept: string
+  note: string
+  date: string
+  accountId: string
+  categoryId: string
+  status: 'pending' | 'omitted'
+}
+
+interface MonthlyPlan {
+  // metadatos SyncableRecord
+  month: string
+  savingsAllocationCents: number
+  investmentAllocationCents: number
+}
 ```
 
 - UUID en cliente; timestamps ISO-8601 UTC; `date` es `YYYY-MM-DD`.
@@ -92,14 +121,17 @@ interface Category {
 - `note` es texto opcional de hasta 500 caracteres. Los movimientos anteriores al esquema 3 se normalizan con nota vacía.
 - Una ocurrencia materializada enlaza regla y fecha. Su UUID se deriva determinísticamente de ambas para que dos clientes creen el mismo registro y no dos duplicados.
 - Las reglas pausadas conservan su historial y pueden reactivarse. El calendario mensual conserva el día ancla y lo limita al último día válido del mes.
+- Un previsto se considera realizado por la existencia de su movimiento enlazado, no por un estado mutable duplicado. Los previstos omitidos no entran en la proyección.
+- El presupuesto variable pertenece a un mes y categoría de gasto. La distribución mensual entre ahorro, inversión y sin asignar es una intención y no mueve dinero.
 
 ## 4. IndexedDB
 
-Base `hogar-finanzas`, versión 3:
+Base `hogar-finanzas`, versión 4:
 
 - `transactions`, clave `id`, incluidos tombstones recibidos;
 - `accounts` y `categories`, clave `id`, incluidos registros archivados;
 - `recurringRules`, clave `id`, incluidas reglas pausadas y tombstones recibidos;
+- `budgets`, `plannedItems` y `monthlyPlans`, clave `id`, incluidos tombstones recibidos;
 - `outbox`, clave `operationId`, operaciones pendientes y errores;
 - `meta`, clave `key`, para cursor, sesión y URL pública.
 
@@ -121,6 +153,7 @@ El POST usa `text/plain;charset=utf-8`, sigue la redirección de ContentService 
 
 - `SyncOperations` conserva cada `operationId` y resultado; un reintento devuelve lo mismo.
 - Las ocurrencias recurrentes añaden idempotencia semántica: una segunda alta con el mismo UUID de regla/fecha devuelve el registro canónico ya aceptado.
+- Presupuestos por mes/categoría, distribuciones por mes y excepciones recurrentes usan UUID deterministas. Altas simultáneas de ambos iPhone convergen en una sola fila y gana la última aceptada.
 - `LockService.getScriptLock()` serializa el lote y contador global.
 - Cada mutación aceptada incrementa `version` y `changeSequence`.
 - En edición concurrente gana el último cambio aceptado por orden del lock.
@@ -134,7 +167,7 @@ El POST usa `text/plain;charset=utf-8`, sigue la redirección de ContentService 
 
 ## 6. Google Sheets y Apps Script
 
-El inicializador idempotente crea todas las hojas. En Fase 4 son funcionales `Meta`, `Users`, `Accounts`, `Categories`, `Transactions`, `RecurringRules` y `SyncOperations`; el resto continúa reservado. `migratePhase4` amplía `Transactions`, activa el esquema de `RecurringRules`, conserva filas y mantiene el catálogo inicial de forma idempotente.
+El inicializador idempotente crea todas las hojas. En Fase 5 son funcionales `Meta`, `Users`, `Accounts`, `Categories`, `Transactions`, `RecurringRules`, `Budgets`, `PlannedItems`, `MonthlyPlans` y `SyncOperations`; objetivos y cierres continúan reservados. `migratePhase5` añade el vínculo a previstos y activa las tres hojas del plan sin modificar filas existentes.
 
 Apps Script revalida identidad, UUIDs, fechas, concepto e importe. Las operaciones están protegidas por Script Lock.
 
@@ -154,9 +187,10 @@ Apps Script revalida identidad, UUIDs, fechas, concepto e importe. Las operacion
 - Workbox precachea el app shell y proporciona fallback de navegación.
 - Actualización avisada antes de recargar; sin dependencia de Background Sync.
 - Mobile-first, safe areas, modo oscuro, zoom/tipos dinámicos, etiquetas y mensajes accesibles.
-- La barra inferior mantiene cinco áreas. Plan, Objetivos y Análisis son destinos informativos hasta sus fases funcionales.
+- La barra inferior mantiene cinco áreas. Plan ya es funcional; Objetivos y Análisis siguen como destinos informativos hasta sus fases.
 - La búsqueda y los filtros se calculan localmente sobre IndexedDB; no generan consultas remotas. Incluyen periodo, tipo, cuenta, categoría, miembro y carácter recurrente.
-- Ajustes → Recurrentes permite crear, editar, pausar/reactivar y materializar próximas ocurrencias. Esta vista no calcula presupuestos ni proyecciones de Fase 5.
+- Ajustes → Recurrentes permite crear, editar, pausar/reactivar y materializar próximas ocurrencias.
+- Plan permite navegar por mes, gestionar previstos manuales y recurrentes, presupuestos variables y distribución entre ahorro, inversión y remanente. La proyección aplica: ingresos reales + ingresos pendientes − gastos reales − gastos fijos pendientes − presupuesto variable restante. No duplica movimientos ya realizados.
 
 ## 9. Build y CI
 
@@ -174,7 +208,7 @@ npm run build
 
 ## 10. Pruebas y aceptación
 
-Automatización: céntimos; saldos, patrimonio, liquidez, transferencias y ajustes; archivado/reactivación; búsqueda, filtros y agrupación; notas; calendarios recurrentes; UUID de ocurrencia; idempotencia local y remota; navegación accesible; tombstones; persistencia y cola por entidad; cursor y sesión; router Apps Script; manifest/service worker.
+Automatización: céntimos; saldos, patrimonio, liquidez, transferencias y ajustes; archivado/reactivación; búsqueda, filtros y agrupación; notas; calendarios recurrentes; proyección mensual, presupuestos, omisiones y materialización de previstos; UUID e idempotencia local/remota; navegación accesible; tombstones; persistencia y cola por entidad; cursor y sesión; router Apps Script; manifest/service worker.
 
 Aceptación real obligatoria:
 
@@ -188,10 +222,9 @@ Si Chromium o Safari no pueden leer la respuesta redirigida por política CORS, 
 
 ## 11. Fases futuras
 
-1. Fase 5: presupuestos y plan.
-2. Fase 6: objetivos y patrimonio.
-3. Fase 7: cierres mensuales.
-4. Fase 8: análisis.
-5. Fase 9: robustez, accesibilidad, exportación y copias.
+1. Fase 6: objetivos y patrimonio.
+2. Fase 7: cierres mensuales.
+3. Fase 8: análisis.
+4. Fase 9: robustez, accesibilidad, exportación y copias.
 
 No se anticipan capacidades futuras.

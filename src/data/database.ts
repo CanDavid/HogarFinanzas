@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
-import type { Account, Category, RecurringRule, Session, SyncOperation, Transaction } from '../domain/types'
+import type { Account, Budget, Category, MonthlyPlan, PlannedItem, RecurringRule, Session, SyncOperation, Transaction } from '../domain/types'
 
 interface MetaValue { key: string; value: unknown }
 
@@ -8,6 +8,9 @@ interface FinanceDatabase extends DBSchema {
   accounts: { key: string; value: Account }
   categories: { key: string; value: Category }
   recurringRules: { key: string; value: RecurringRule }
+  budgets: { key: string; value: Budget }
+  plannedItems: { key: string; value: PlannedItem }
+  monthlyPlans: { key: string; value: MonthlyPlan }
   outbox: { key: string; value: SyncOperation }
   meta: { key: string; value: MetaValue }
 }
@@ -15,7 +18,7 @@ interface FinanceDatabase extends DBSchema {
 let databasePromise: Promise<IDBPDatabase<FinanceDatabase>> | undefined
 
 export function getDatabase(): Promise<IDBPDatabase<FinanceDatabase>> {
-  databasePromise ??= openDB<FinanceDatabase>('hogar-finanzas', 3, {
+  databasePromise ??= openDB<FinanceDatabase>('hogar-finanzas', 4, {
     upgrade(database) {
       if (!database.objectStoreNames.contains('transactions')) database.createObjectStore('transactions', { keyPath: 'id' })
       if (!database.objectStoreNames.contains('outbox')) database.createObjectStore('outbox', { keyPath: 'operationId' })
@@ -23,6 +26,9 @@ export function getDatabase(): Promise<IDBPDatabase<FinanceDatabase>> {
       if (!database.objectStoreNames.contains('accounts')) database.createObjectStore('accounts', { keyPath: 'id' })
       if (!database.objectStoreNames.contains('categories')) database.createObjectStore('categories', { keyPath: 'id' })
       if (!database.objectStoreNames.contains('recurringRules')) database.createObjectStore('recurringRules', { keyPath: 'id' })
+      if (!database.objectStoreNames.contains('budgets')) database.createObjectStore('budgets', { keyPath: 'id' })
+      if (!database.objectStoreNames.contains('plannedItems')) database.createObjectStore('plannedItems', { keyPath: 'id' })
+      if (!database.objectStoreNames.contains('monthlyPlans')) database.createObjectStore('monthlyPlans', { keyPath: 'id' })
     },
   })
   return databasePromise
@@ -32,6 +38,7 @@ export async function clearDatabaseForTests(): Promise<void> {
   const database = await getDatabase()
   await Promise.all([
     database.clear('transactions'), database.clear('accounts'), database.clear('categories'), database.clear('recurringRules'),
+    database.clear('budgets'), database.clear('plannedItems'), database.clear('monthlyPlans'),
     database.clear('outbox'), database.clear('meta'),
   ])
 }

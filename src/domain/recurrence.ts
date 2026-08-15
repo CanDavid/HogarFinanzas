@@ -10,7 +10,11 @@ export interface RecurringOccurrence {
 }
 
 export function occurrenceTransactionId(ruleId: string, date: string): string {
-  const [a, b, c, d] = hash128(`hogar-finanzas:${ruleId}:${date}`)
+  return deterministicRecordId('recurring-transaction', `${ruleId}:${date}`)
+}
+
+export function deterministicRecordId(namespace: string, key: string): string {
+  const [a, b, c, d] = hash128(`hogar-finanzas:${namespace}:${key}`)
   const bytes = [a, b, c, d].flatMap((value) => [value >>> 24, value >>> 16 & 255, value >>> 8 & 255, value & 255])
   bytes[6] = (bytes[6] & 0x0f) | 0x50
   bytes[8] = (bytes[8] & 0x3f) | 0x80

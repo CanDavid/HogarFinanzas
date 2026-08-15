@@ -163,7 +163,7 @@ El usuario confirmó el 2026-08-15 que toda la aceptación de Fase 3, incluidos 
 
 ## Fase 4 — Reglas recurrentes y ocurrencias idempotentes
 
-Estado: **implementada y desplegada; pendiente de validación en ambos iPhone — 2026-08-15**.
+Estado: **completada y validada en ambos iPhone — 2026-08-15**.
 
 ### Alcance cerrado
 
@@ -198,11 +198,52 @@ Estado: **implementada y desplegada; pendiente de validación en ambos iPhone �
 - Apps Script promovido a la versión inmutable 6, descripción `version4.0.0-phase4`, conservando la URL pública. Health check real: HTTP 200 y `4.0.0-phase4`.
 - El lanzador `apps-script:deploy` se adaptó a Node 24 en Windows usando `ComSpec` y valida la descripción antes de invocar clasp.
 - Commit `56f0b99`: `PWA CI #14` y `Deploy GitHub Pages #14` verdes. Página y bundle HTTPS responden 200 y el artefacto publicado contiene Recurrentes, `Se repite` y el filtro recurrente/no recurrente.
-- Pendiente exclusivamente de checkpoint: completar `IPHONE_PHASE4.md` en los dispositivos de David y Esther.
+- David y Esther completaron satisfactoriamente toda la matriz `IPHONE_PHASE4.md`: reglas compartidas, edición, pausa/reactivación, ocurrencia simultánea sin duplicados, persistencia offline y calendario con fecha final.
+
+### Cierre
+
+El usuario confirmó el 2026-08-15 que toda la Fase 4 funciona correctamente y autorizó avanzar a Fase 5.
+
+## Fase 5 — Presupuestos y plan mensual
+
+Estado: **implementada y backend desplegado; pendiente de CI/Pages y validación en ambos iPhone — 2026-08-15**.
+
+### Alcance cerrado
+
+- Área Plan funcional con navegación mensual y resumen de ingresos previstos/reales, gastos fijos pendientes/reales, presupuesto variable restante y superávit inicial/proyectado.
+- Previsto manual de ingreso o gasto: alta, edición, borrado lógico, omisión/reactivación y materialización idempotente como movimiento real.
+- Las ocurrencias recurrentes del mes aparecen automáticamente como previstas; pueden omitirse/reactivarse por fecha o registrarse, sin duplicar lo ya realizado.
+- Presupuesto variable por mes y categoría de gasto, con consumido, disponible y porcentaje. Un importe cero retira el presupuesto del cálculo sin eliminar historia compartida.
+- Distribución prevista del resultado entre ahorro, inversión y sin asignar. Es informativa: no crea transferencias, no altera patrimonio y no anticipa objetivos.
+- Fórmula pura: ingresos reales + ingresos pendientes − gastos reales − gastos fijos pendientes − presupuesto variable restante. Transferencias/ajustes no cuentan y un previsto realizado no se suma dos veces.
+- IndexedDB versión 4 y sincronización incremental de `Budget`, `PlannedItem` y `MonthlyPlan`; UUID deterministas para presupuesto, plan mensual, excepción recurrente y movimiento materializado.
+- Apps Script `5.0.0-phase5`, esquema 5 y `migratePhase5`; nuevas hojas `PlannedItems` y `MonthlyPlans`, activación de `Budgets` y vínculo `plannedItemId` en `Transactions`.
+
+### Deliberadamente fuera
+
+- Objetivos y sus asignaciones, reservados para Fase 6. La distribución solo distingue ahorro, inversión y remanente.
+- Cierre/reapertura y bloqueo de meses, reservados para Fase 7; la interfaz identifica el mes como abierto.
+- Análisis y tendencias, reservados para Fase 8.
+- Aplazar automáticamente una ocurrencia o editar en bloque movimientos ya realizados.
+
+### Criterio de salida
+
+- Lint, typecheck, tests, build y CI/Pages verdes; historial sin secretos.
+- `migratePhase5` ejecutada y Web App `5.0.0-phase5` desplegada conservando la URL.
+- En ambos iPhone: previsto manual y recurrente, omisión/reactivación, materialización simultánea sin duplicados, presupuestos, distribución, persistencia offline y convergencia.
+- La matriz reproducible está en `IPHONE_PHASE5.md`. La fase permanecerá pendiente hasta recibir el resultado real del usuario.
+
+### Validación automatizada local
+
+- `npm run lint`: verde, sin warnings.
+- `npm run typecheck`: verde.
+- `npm test`: 15 archivos y 78 tests verdes. Incluyen fórmula financiera, no doble contabilización, transferencias, presupuestos agotados, omisiones, persistencia IndexedDB, materialización idempotente, entidades remotas y UI de Plan.
+- `npm run build`: verde; app shell y service worker generados con 7 recursos precacheados.
+- `migratePhase5` ejecutada correctamente desde el editor autorizado: conserva datos y sesiones y deja `schemaVersion: 5`.
+- Apps Script promovido a la versión inmutable 7, descripción `version5.0.0-phase5`, con la misma URL pública. Health check real: HTTP 200 y `5.0.0-phase5`.
 
 ## Fases siguientes — no iniciadas
 
-- **Fase 5:** presupuestos y plan mensual.
 - **Fase 6:** objetivos virtuales y patrimonio.
 - **Fase 7:** cierres, snapshots, reapertura y recierre.
 - **Fase 8:** análisis y tendencias accesibles.

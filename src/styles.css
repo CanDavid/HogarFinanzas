@@ -116,6 +116,41 @@ form > button, .form-actions button { min-height: 2.8rem; padding: .65rem 1rem; 
 .occurrence-list { display: grid; gap: .3rem; padding: 0 .2rem; }
 .occurrence-list > div { display: flex; align-items: center; justify-content: space-between; gap: .5rem; min-height: 2rem; color: #63746e; font-size: .78rem; }
 .occurrence-list strong { color: #287159; font-size: .72rem; }
+.plan-view { display: grid; gap: 1rem; padding-top: 1rem; }
+.month-selector { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .7rem; text-align: center; }
+.month-selector button { width: 2.6rem; height: 2.6rem; border: 1px solid #cbd3cd; border-radius: 50%; color: #31584d; background: #fff; font-size: 1.5rem; }
+.month-selector strong, .month-selector small { display: block; text-transform: capitalize; }
+.month-selector small { color: #6b7a75; font-size: .7rem; }
+.plan-hero { display: grid; gap: .2rem; color: #fff; background: #173f35; }
+.plan-hero span, .plan-hero small { opacity: .78; }
+.plan-hero > strong { font-size: clamp(2rem, 10vw, 3rem); }
+.negative { color: #b4472d !important; }
+.plan-hero .negative { color: #ffd0c4 !important; }
+.plan-metrics, .distribution-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+.plan-metrics > div, .distribution-summary > div { min-width: 0; padding: .8rem; border-radius: .9rem; background: #fff; }
+.plan-metrics span, .plan-metrics strong, .distribution-summary span, .distribution-summary strong { display: block; }
+.plan-metrics span, .distribution-summary span { color: #687873; font-size: .7rem; }
+.plan-metrics strong, .distribution-summary strong { overflow-wrap: anywhere; margin-top: .15rem; font-size: .95rem; }
+.plan-nav { margin: 0; }
+.plan-section { display: grid; gap: .85rem; }
+.plan-section > h2 { margin: 0; }
+.plan-items, .budget-list { margin: 0; padding: 0; list-style: none; }
+.plan-items li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .35rem .7rem; padding: .85rem .15rem; border-bottom: 1px solid #dddcd4; }
+.plan-items li > div:first-child { min-width: 0; }
+.plan-items li strong, .plan-items li small { display: block; }
+.plan-items li small { color: #6b7a75; }
+.plan-items li > strong { text-align: right; }
+.plan-items li > strong.expense { color: #a84a33; }
+.plan-items li > strong.income { color: #287159; }
+.plan-items li.omitted { opacity: .58; }
+.plan-item-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .15rem; }
+.text-action.muted { color: #687873; }
+.budget-form { margin: 0; }
+.budget-list li { border-bottom: 1px solid #dddcd4; }
+.budget-main { display: grid; gap: .3rem; width: 100%; padding: .8rem .15rem; border: 0; color: inherit; background: transparent; text-align: left; }
+.budget-main span, .budget-main small { color: #6b7a75; font-size: .75rem; }
+.budget-main progress { width: 100%; accent-color: #e15f3b; }
+.phase-note { color: #6b7a75; font-size: .75rem; text-align: center; }
 .placeholder-view { margin-top: 1rem; padding: 2rem 1.2rem; text-align: center; }
 .placeholder-view .placeholder-icon { display: grid; place-items: center; width: 3.5rem; height: 3.5rem; margin: 0 auto 1rem; border-radius: 50%; color: #356556; background: #e0e9e2; font-size: 1.7rem; }
 .placeholder-view p { color: #53665f; }
@@ -141,4 +176,4 @@ footer { padding: 1rem 0 2rem; color: #71817b; text-align: center; font-size: .7
 .center { min-height: 100vh; display: grid; place-items: center; }
 @media (min-width: 42rem) { .summary { grid-template-columns: repeat(3, 1fr); } .summary .balance { grid-column: auto; } }
 @media (max-width: 23rem) { .home-links, .settings-links, .filter-grid { grid-template-columns: 1fr; } .metric-grid { gap: .35rem; } .movement-toolbar { grid-template-columns: minmax(0, 1fr) auto; } .filter-button { grid-row: 2; grid-column: 1 / -1; } }
-@media (prefers-color-scheme: dark) { :root { color: #eef5f1; background: #0f1815; } body { background: radial-gradient(circle at top right, #1d3c33, transparent 32rem), #0f1815; } .card, .summary div, .sync-banner, .filter-button, .recurrence-fields { border-color: #30423c; background: #18241f; } .summary .balance, .segmented button[aria-pressed="true"], .section-nav button[aria-pressed="true"], .hero-card { background: #397864; } input, select, textarea { border-color: #40554d; color: #eef5f1; background: #111c18; } label, .login legend { color: #d4e1dc; } .eyebrow, .login .intro, .login summary, .privacy, .placeholder-view p, .session-card p, .management-intro, .recurrence-options small { color: #aebfb8; } .segmented, .section-nav, .settings-button { background: #26352f; } .segmented button, .section-nav button, .settings-button, .back-button, .close-button, .filter-button { color: #d0ddd8; } .movements li, .management li { border-color: #2b3934; } .form-actions .secondary { color: #d4dfda; background: #2a3933; } .movement-group h3 { color: #aebfb8; background: #0f1815e8; } .bottom-nav { border-color: #2f4039; background: #14201cf2; } .bottom-nav button[aria-current="page"] { color: #dff4eb; background: #315f50; } .metric-grid span, .home-links span, .settings-links span { color: #aebfb8; } .text-action { color: #8bc4af; } .recurring-badge { color: #dff4eb; background: #315f50; } }
+@media (prefers-color-scheme: dark) { :root { color: #eef5f1; background: #0f1815; } body { background: radial-gradient(circle at top right, #1d3c33, transparent 32rem), #0f1815; } .card, .summary div, .sync-banner, .filter-button, .recurrence-fields, .plan-metrics > div, .distribution-summary > div, .month-selector button { border-color: #30423c; background: #18241f; } .summary .balance, .segmented button[aria-pressed="true"], .section-nav button[aria-pressed="true"], .hero-card, .plan-hero { background: #397864; } input, select, textarea { border-color: #40554d; color: #eef5f1; background: #111c18; } label, .login legend { color: #d4e1dc; } .eyebrow, .login .intro, .login summary, .privacy, .placeholder-view p, .session-card p, .management-intro, .recurrence-options small, .month-selector small, .phase-note { color: #aebfb8; } .segmented, .section-nav, .settings-button { background: #26352f; } .segmented button, .section-nav button, .settings-button, .back-button, .close-button, .filter-button, .month-selector button { color: #d0ddd8; } .movements li, .management li, .plan-items li, .budget-list li { border-color: #2b3934; } .form-actions .secondary { color: #d4dfda; background: #2a3933; } .movement-group h3 { color: #aebfb8; background: #0f1815e8; } .bottom-nav { border-color: #2f4039; background: #14201cf2; } .bottom-nav button[aria-current="page"] { color: #dff4eb; background: #315f50; } .metric-grid span, .home-links span, .settings-links span, .plan-metrics span, .distribution-summary span { color: #aebfb8; } .text-action { color: #8bc4af; } .recurring-badge { color: #dff4eb; background: #315f50; } }

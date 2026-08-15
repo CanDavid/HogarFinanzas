@@ -14,6 +14,9 @@ class RepositoryStub implements SyncRepository {
   listAccounts = async () => []
   listCategories = async () => []
   listRecurringRules = async () => []
+  listBudgets = async () => []
+  listPlannedItems = async () => []
+  listMonthlyPlans = async () => []
   createTransaction = async () => { throw new Error('unused') }
   updateTransaction = async () => { throw new Error('unused') }
   deleteTransaction = async () => undefined
@@ -30,6 +33,14 @@ class RepositoryStub implements SyncRepository {
   setRecurringRuleActive = async () => undefined
   createTransactionWithRecurrence = async () => { throw new Error('unused') }
   materializeRecurringOccurrence = async () => { throw new Error('unused') }
+  setBudget = async () => { throw new Error('unused') }
+  createPlannedItem = async () => { throw new Error('unused') }
+  updatePlannedItem = async () => { throw new Error('unused') }
+  deletePlannedItem = async () => undefined
+  setPlannedItemStatus = async () => undefined
+  setRecurringOccurrenceStatus = async () => { throw new Error('unused') }
+  materializePlannedItem = async () => { throw new Error('unused') }
+  setMonthlyPlan = async () => { throw new Error('unused') }
   pendingOperations = async () => this.operations
   failedOperations = async () => []
   recoverFailedDeletions = async () => { this.recoveredDeletions = true; return 0 }
