@@ -3,7 +3,7 @@ export type TransactionKind = 'income' | 'expense' | 'transfer' | 'adjustment'
 export type AccountType = 'checking' | 'savings' | 'investment' | 'cash'
 export type CategoryKind = 'income' | 'expense'
 export type OperationKind = 'create' | 'update' | 'delete'
-export type EntityType = 'transaction' | 'account' | 'category' | 'recurringRule' | 'budget' | 'plannedItem' | 'monthlyPlan' | 'goal' | 'goalAllocation'
+export type EntityType = 'transaction' | 'account' | 'category' | 'recurringRule' | 'budget' | 'plannedItem' | 'monthlyPlan' | 'goal' | 'goalAllocation' | 'monthlyClosure'
 export type RecurrenceFrequency = 'monthly' | 'quarterly' | 'annual'
 
 export interface SyncableRecord {
@@ -102,7 +102,29 @@ export interface GoalAllocation extends SyncableRecord {
   note: string
 }
 
-export type SyncEntity = Transaction | Account | Category | RecurringRule | Budget | PlannedItem | MonthlyPlan | Goal | GoalAllocation
+export interface MonthlyClosure extends SyncableRecord {
+  month: string
+  status: 'closed' | 'open'
+  revision: number
+  closedAt: string
+  closedBy: UserId
+  reopenedAt: string | null
+  reopenedBy: UserId | null
+  transactionCount: number
+  pendingIncomeCount: number
+  pendingExpenseCount: number
+  actualIncomeCents: number
+  actualExpenseCents: number
+  realSurplusCents: number
+  projectedSurplusCents: number
+  netWorthCents: number
+  liquidityCents: number
+  savingsCents: number
+  investmentCents: number
+  goalReservedCents: number
+}
+
+export type SyncEntity = Transaction | Account | Category | RecurringRule | Budget | PlannedItem | MonthlyPlan | Goal | GoalAllocation | MonthlyClosure
 
 export interface SyncOperation {
   operationId: string
@@ -154,6 +176,9 @@ export type RecurringRuleInput = Pick<RecurringRule, 'kind' | 'amountCents' | 'c
 export type PlannedItemInput = Pick<PlannedItem, 'kind' | 'amountCents' | 'concept' | 'note' | 'date' | 'accountId' | 'categoryId'>
 export type GoalInput = Pick<Goal, 'name' | 'targetAmountCents' | 'targetDate' | 'icon' | 'note'>
 export type GoalAllocationInput = Pick<GoalAllocation, 'amountCents' | 'date' | 'note'>
+export type MonthlyClosureInput = Pick<MonthlyClosure, 'month' | 'transactionCount' | 'pendingIncomeCount' | 'pendingExpenseCount' |
+  'actualIncomeCents' | 'actualExpenseCents' | 'realSurplusCents' | 'projectedSurplusCents' | 'netWorthCents' |
+  'liquidityCents' | 'savingsCents' | 'investmentCents' | 'goalReservedCents'>
 
 export interface SyncRepository {
   listTransactions(): Promise<Transaction[]>
@@ -165,6 +190,7 @@ export interface SyncRepository {
   listMonthlyPlans(): Promise<MonthlyPlan[]>
   listGoals(): Promise<Goal[]>
   listGoalAllocations(): Promise<GoalAllocation[]>
+  listMonthlyClosures(): Promise<MonthlyClosure[]>
   createTransaction(input: TransactionInput, userId: UserId): Promise<Transaction>
   updateTransaction(id: string, input: TransactionInput): Promise<Transaction>
   deleteTransaction(id: string): Promise<void>
@@ -195,6 +221,8 @@ export interface SyncRepository {
   archiveGoal(id: string): Promise<void>
   restoreGoal(id: string): Promise<void>
   createGoalAllocation(goalId: string, input: GoalAllocationInput, userId: UserId): Promise<GoalAllocation>
+  closeMonth(input: MonthlyClosureInput, userId: UserId): Promise<MonthlyClosure>
+  reopenMonth(month: string, userId: UserId): Promise<MonthlyClosure>
   pendingOperations(): Promise<SyncOperation[]>
   failedOperations(): Promise<SyncOperation[]>
   recoverFailedDeletions(): Promise<number>

@@ -19,6 +19,7 @@ class RepositoryStub implements SyncRepository {
   listMonthlyPlans = async () => []
   listGoals = async () => []
   listGoalAllocations = async () => []
+  listMonthlyClosures = async () => []
   createTransaction = async () => { throw new Error('unused') }
   updateTransaction = async () => { throw new Error('unused') }
   deleteTransaction = async () => undefined
@@ -49,6 +50,8 @@ class RepositoryStub implements SyncRepository {
   archiveGoal = async () => undefined
   restoreGoal = async () => undefined
   createGoalAllocation = async () => { throw new Error('unused') }
+  closeMonth = async () => { throw new Error('unused') }
+  reopenMonth = async () => { throw new Error('unused') }
   pendingOperations = async () => this.operations
   failedOperations = async () => []
   recoverFailedDeletions = async () => { this.recoveredDeletions = true; return 0 }

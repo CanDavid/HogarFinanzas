@@ -23,7 +23,7 @@ describe('Apps Script public router', () => {
   it('returns a minimal health response without financial data', () => {
     const { context, outputs } = loadScript()
     ;(context.doGet as () => unknown)()
-    expect(JSON.parse(outputs[0])).toEqual({ ok: true, data: { service: 'Hogar Finanzas', version: '6.0.0-phase6' } })
+    expect(JSON.parse(outputs[0])).toEqual({ ok: true, data: { service: 'Hogar Finanzas', version: '7.0.0-phase7' } })
   })
 
   it('rejects unknown actions with a stable envelope', () => {

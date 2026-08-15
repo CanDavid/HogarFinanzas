@@ -1,9 +1,10 @@
 import { localDateOnly, normalizeDateOnly } from '../domain/dates'
+import { validateClosureInput } from '../domain/closures'
 import { goalAssignedCents } from '../domain/goals'
 import { assertMoneyCents } from '../domain/money'
 import { deterministicRecordId, occurrenceTransactionId } from '../domain/recurrence'
 import type {
-  Account, AccountInput, Budget, Category, CategoryInput, EntityType, Goal, GoalAllocation, GoalAllocationInput, GoalInput, MonthlyPlan,
+  Account, AccountInput, Budget, Category, CategoryInput, EntityType, Goal, GoalAllocation, GoalAllocationInput, GoalInput, MonthlyClosure, MonthlyClosureInput, MonthlyPlan,
   OperationResult, PlannedItem, PlannedItemInput, RecurringRule, RecurringRuleInput, Session, SyncChange, SyncEntity, SyncOperation,
   SyncRepository, Transaction, TransactionInput, UserId,
 } from '../domain/types'
@@ -71,8 +72,15 @@ export class LocalFinanceRepository implements SyncRepository {
       .sort((left, right) => right.date.localeCompare(left.date) || right.createdAt.localeCompare(left.createdAt))
   }
 
+  async listMonthlyClosures(): Promise<MonthlyClosure[]> {
+    const database = await getDatabase(); const stored = await database.getAll('monthlyClosures'); const normalized = stored.map(normalizeMonthlyClosure)
+    await Promise.all(normalized.filter((item, index) => item.month !== stored[index].month).map((item) => database.put('monthlyClosures', item)))
+    return normalized.filter((item) => !item.deletedAt).sort((left, right) => right.month.localeCompare(left.month))
+  }
+
   async createTransaction(input: TransactionInput, userId: UserId): Promise<Transaction> {
     validateTransactionInput(input)
+    await this.assertMonthOpen(input.date.slice(0, 7))
     const record = newRecord<Transaction>({ ...normalizeTransactionInput(input), createdBy: userId })
     await this.writeLocalChange('transaction', 'create', record, 0)
     return record
@@ -82,6 +90,7 @@ export class LocalFinanceRepository implements SyncRepository {
     validateTransactionInput(input)
     const current = await (await getDatabase()).get('transactions', id)
     if (!current || current.deletedAt) throw new Error('El movimiento ya no está disponible.')
+    await this.assertMonthOpen(current.date.slice(0, 7)); await this.assertMonthOpen(input.date.slice(0, 7))
     const updated = { ...normalizeTransaction(current), ...normalizeTransactionInput(input, current), updatedAt: new Date().toISOString() }
     await this.writeLocalChange('transaction', 'update', updated, current.version)
     return updated
@@ -90,6 +99,7 @@ export class LocalFinanceRepository implements SyncRepository {
   async deleteTransaction(id: string): Promise<void> {
     const current = await (await getDatabase()).get('transactions', id)
     if (!current || current.deletedAt) return
+    await this.assertMonthOpen(current.date.slice(0, 7))
     const now = new Date().toISOString()
     await this.writeLocalChange('transaction', 'delete', { ...normalizeTransaction(current), deletedAt: now, updatedAt: now }, current.version)
   }
@@ -155,6 +165,7 @@ export class LocalFinanceRepository implements SyncRepository {
 
   async createTransactionWithRecurrence(input: TransactionInput, recurrence: RecurringRuleInput, userId: UserId): Promise<Transaction> {
     validateTransactionInput(input); validateRecurringRuleInput(recurrence)
+    await this.assertMonthOpen(input.date.slice(0, 7))
     if (input.kind !== recurrence.kind) throw new Error('El tipo del movimiento y la recurrencia no coincide.')
     const rule = newRecord<RecurringRule>({ ...recurrence, active: true, createdBy: userId })
     const occurrenceDate = normalizeDateOnly(input.date) ?? input.date
@@ -171,6 +182,7 @@ export class LocalFinanceRepository implements SyncRepository {
   async materializeRecurringOccurrence(ruleId: string, date: string, userId: UserId): Promise<Transaction> {
     const normalizedDate = normalizeDateOnly(date)
     if (!normalizedDate) throw new Error('La fecha de la ocurrencia no es válida.')
+    await this.assertMonthOpen(normalizedDate.slice(0, 7))
     const database = await getDatabase(); const rule = await database.get('recurringRules', ruleId)
     if (!rule || rule.deletedAt || !rule.active) throw new Error('La recurrencia no está activa.')
     const id = occurrenceTransactionId(ruleId, normalizedDate)
@@ -189,6 +201,7 @@ export class LocalFinanceRepository implements SyncRepository {
 
   async setBudget(month: string, categoryId: string, amountCents: number, userId: UserId): Promise<Budget> {
     validateMonth(month); assertMoneyCents(amountCents)
+    await this.assertMonthOpen(month)
     if (amountCents < 0 || !categoryId) throw new Error('El presupuesto no es válido.')
     const database = await getDatabase(); const id = deterministicRecordId('budget', `${month}:${categoryId}`)
     const current = await database.get('budgets', id)
@@ -203,6 +216,7 @@ export class LocalFinanceRepository implements SyncRepository {
 
   async createPlannedItem(input: PlannedItemInput, userId: UserId): Promise<PlannedItem> {
     validatePlannedItemInput(input)
+    await this.assertMonthOpen(input.date.slice(0, 7))
     const record = newRecord<PlannedItem>({ ...input, source: 'manual', recurringRuleId: null, status: 'pending', createdBy: userId })
     await this.writeLocalChange('plannedItem', 'create', record, 0); return record
   }
@@ -211,6 +225,7 @@ export class LocalFinanceRepository implements SyncRepository {
     validatePlannedItemInput(input)
     const database = await getDatabase(); const current = await database.get('plannedItems', id)
     if (!current || current.deletedAt || current.source !== 'manual') throw new Error('El previsto ya no está disponible.')
+    await this.assertMonthOpen(current.date.slice(0, 7)); await this.assertMonthOpen(input.date.slice(0, 7))
     const updated = { ...current, ...input, updatedAt: new Date().toISOString() }
     await this.writeLocalChange('plannedItem', 'update', updated, current.version); return updated
   }
@@ -218,6 +233,7 @@ export class LocalFinanceRepository implements SyncRepository {
   async deletePlannedItem(id: string): Promise<void> {
     const database = await getDatabase(); const current = await database.get('plannedItems', id)
     if (!current || current.deletedAt || current.source !== 'manual') return
+    await this.assertMonthOpen(current.date.slice(0, 7))
     const now = new Date().toISOString()
     await this.writeLocalChange('plannedItem', 'delete', { ...current, deletedAt: now, updatedAt: now }, current.version)
   }
@@ -225,12 +241,14 @@ export class LocalFinanceRepository implements SyncRepository {
   async setPlannedItemStatus(id: string, status: PlannedItem['status']): Promise<void> {
     const database = await getDatabase(); const current = await database.get('plannedItems', id)
     if (!current || current.deletedAt || current.status === status) return
+    await this.assertMonthOpen(current.date.slice(0, 7))
     const updated = { ...current, status, updatedAt: new Date().toISOString() }
     await this.writeLocalChange('plannedItem', 'update', updated, current.version)
   }
 
   async setRecurringOccurrenceStatus(ruleId: string, date: string, status: PlannedItem['status'], userId: UserId): Promise<PlannedItem> {
     const normalizedDate = normalizeDateOnly(date); if (!normalizedDate) throw new Error('La fecha prevista no es válida.')
+    await this.assertMonthOpen(normalizedDate.slice(0, 7))
     const database = await getDatabase(); const rule = await database.get('recurringRules', ruleId)
     if (!rule || rule.deletedAt) throw new Error('La recurrencia ya no está disponible.')
     const id = deterministicRecordId('planned-recurring', `${ruleId}:${normalizedDate}`); const current = await database.get('plannedItems', id)
@@ -248,6 +266,7 @@ export class LocalFinanceRepository implements SyncRepository {
   async materializePlannedItem(id: string, userId: UserId): Promise<Transaction> {
     const database = await getDatabase(); const item = await database.get('plannedItems', id)
     if (!item || item.deletedAt || item.source !== 'manual') throw new Error('El previsto ya no está disponible.')
+    await this.assertMonthOpen(item.date.slice(0, 7))
     if (item.status === 'omitted') throw new Error('Reactiva el previsto antes de registrarlo.')
     const transactionId = deterministicRecordId('planned-transaction', id); const existing = await database.get('transactions', transactionId)
     if (existing) {
@@ -263,6 +282,7 @@ export class LocalFinanceRepository implements SyncRepository {
 
   async setMonthlyPlan(month: string, savingsAllocationCents: number, investmentAllocationCents: number, userId: UserId): Promise<MonthlyPlan> {
     validateMonth(month); assertMoneyCents(savingsAllocationCents); assertMoneyCents(investmentAllocationCents)
+    await this.assertMonthOpen(month)
     if (savingsAllocationCents < 0 || investmentAllocationCents < 0) throw new Error('La distribución no admite importes negativos.')
     const database = await getDatabase(); const id = deterministicRecordId('monthly-plan', month); const current = await database.get('monthlyPlans', id)
     if (current?.deletedAt) throw new Error('El plan mensual ya no está disponible.')
@@ -323,6 +343,35 @@ export class LocalFinanceRepository implements SyncRepository {
     return allocation
   }
 
+  async closeMonth(input: MonthlyClosureInput, userId: UserId): Promise<MonthlyClosure> {
+    validateClosureInput(input)
+    if (input.month > localDateOnly().slice(0, 7)) throw new Error('No puedes cerrar un mes futuro.')
+    const database = await getDatabase(); const id = deterministicRecordId('monthly-closure', input.month)
+    const current = await database.get('monthlyClosures', id); const now = new Date().toISOString()
+    if (current?.deletedAt) throw new Error('El cierre mensual ya no está disponible.')
+    if (current?.status === 'closed') return current
+    if (current) {
+      const updated: MonthlyClosure = { ...current, ...input, status: 'closed', revision: current.revision + 1,
+        closedAt: now, closedBy: userId, updatedAt: now }
+      await this.writeLocalChange('monthlyClosure', 'update', updated, current.version)
+      return updated
+    }
+    const record = newRecord<MonthlyClosure>({ id, ...input, status: 'closed', revision: 1, closedAt: now, closedBy: userId,
+      reopenedAt: null, reopenedBy: null, createdBy: userId })
+    await this.writeLocalChange('monthlyClosure', 'create', record, 0)
+    return record
+  }
+
+  async reopenMonth(month: string, userId: UserId): Promise<MonthlyClosure> {
+    validateMonth(month)
+    const database = await getDatabase(); const id = deterministicRecordId('monthly-closure', month); const current = await database.get('monthlyClosures', id)
+    if (!current || current.deletedAt) throw new Error('Este mes todavía no tiene un cierre.')
+    if (current.status === 'open') return current
+    const now = new Date().toISOString(); const updated: MonthlyClosure = { ...current, status: 'open', reopenedAt: now, reopenedBy: userId, updatedAt: now }
+    await this.writeLocalChange('monthlyClosure', 'update', updated, current.version)
+    return updated
+  }
+
   async pendingOperations(): Promise<SyncOperation[]> {
     const database = await getDatabase(); const stored = await database.getAll('outbox'); const repaired: SyncOperation[] = []
     for (const item of stored) {
@@ -365,11 +414,21 @@ export class LocalFinanceRepository implements SyncRepository {
 
   async applyOperationResults(results: OperationResult[]): Promise<void> {
     const database = await getDatabase()
-    const transaction = database.transaction(['outbox', 'transactions', 'accounts', 'categories', 'recurringRules', 'budgets', 'plannedItems', 'monthlyPlans', 'goals', 'goalAllocations'], 'readwrite')
+    const transaction = database.transaction(['outbox', 'transactions', 'accounts', 'categories', 'recurringRules', 'budgets', 'plannedItems', 'monthlyPlans', 'goals', 'goalAllocations', 'monthlyClosures'], 'readwrite')
     for (const result of results) {
       const operation = await transaction.objectStore('outbox').get(result.operationId)
       if (!operation) continue
       if (!result.ok) {
+        if (result.error?.code === 'month_closed' && result.error.permanent) {
+          const entityType = result.entityType ?? operation.entityType ?? 'transaction'
+          const record = result.record ? normalizeEntity(entityType, result.record) : undefined
+          if (entityType === 'transaction') { if (record) await transaction.objectStore('transactions').put(record as Transaction); else await transaction.objectStore('transactions').delete(operation.recordId) }
+          else if (entityType === 'budget') { if (record) await transaction.objectStore('budgets').put(record as Budget); else await transaction.objectStore('budgets').delete(operation.recordId) }
+          else if (entityType === 'plannedItem') { if (record) await transaction.objectStore('plannedItems').put(record as PlannedItem); else await transaction.objectStore('plannedItems').delete(operation.recordId) }
+          else if (entityType === 'monthlyPlan') { if (record) await transaction.objectStore('monthlyPlans').put(record as MonthlyPlan); else await transaction.objectStore('monthlyPlans').delete(operation.recordId) }
+          await transaction.objectStore('outbox').delete(result.operationId)
+          continue
+        }
         if (operation.entityType === 'goalAllocation' && operation.kind === 'create' && result.error?.permanent) {
           await transaction.objectStore('goalAllocations').delete(operation.recordId)
           await transaction.objectStore('outbox').delete(result.operationId)
@@ -390,7 +449,8 @@ export class LocalFinanceRepository implements SyncRepository {
         else if (entityType === 'plannedItem') await transaction.objectStore('plannedItems').put(result.record as PlannedItem)
         else if (entityType === 'monthlyPlan') await transaction.objectStore('monthlyPlans').put(normalizeMonthlyPlan(result.record as MonthlyPlan))
         else if (entityType === 'goal') await transaction.objectStore('goals').put(result.record as Goal)
-        else await transaction.objectStore('goalAllocations').put(normalizeGoalAllocation(result.record as GoalAllocation))
+        else if (entityType === 'goalAllocation') await transaction.objectStore('goalAllocations').put(normalizeGoalAllocation(result.record as GoalAllocation))
+        else await transaction.objectStore('monthlyClosures').put(normalizeMonthlyClosure(result.record as MonthlyClosure))
       }
     }
     const remainingOperations = (await transaction.objectStore('outbox').getAll()).sort((left, right) => left.localSequence - right.localSequence)
@@ -404,14 +464,15 @@ export class LocalFinanceRepository implements SyncRepository {
       else if (entityType === 'plannedItem') await transaction.objectStore('plannedItems').put(payload as PlannedItem)
       else if (entityType === 'monthlyPlan') await transaction.objectStore('monthlyPlans').put(normalizeMonthlyPlan(payload as MonthlyPlan))
       else if (entityType === 'goal') await transaction.objectStore('goals').put(payload as Goal)
-      else await transaction.objectStore('goalAllocations').put(normalizeGoalAllocation(payload as GoalAllocation))
+      else if (entityType === 'goalAllocation') await transaction.objectStore('goalAllocations').put(normalizeGoalAllocation(payload as GoalAllocation))
+      else await transaction.objectStore('monthlyClosures').put(normalizeMonthlyClosure(payload as MonthlyClosure))
     }
     await transaction.done
   }
 
   async mergeServerChanges(changes: SyncChange[]): Promise<void> {
     const database = await getDatabase()
-    const transaction = database.transaction(['transactions', 'accounts', 'categories', 'recurringRules', 'budgets', 'plannedItems', 'monthlyPlans', 'goals', 'goalAllocations', 'outbox'], 'readwrite')
+    const transaction = database.transaction(['transactions', 'accounts', 'categories', 'recurringRules', 'budgets', 'plannedItems', 'monthlyPlans', 'goals', 'goalAllocations', 'monthlyClosures', 'outbox'], 'readwrite')
     const locallyPending = new Set((await transaction.objectStore('outbox').getAll())
       .map((operation) => `${operation.entityType ?? 'transaction'}:${operation.recordId}`))
     for (const incoming of changes) {
@@ -442,9 +503,12 @@ export class LocalFinanceRepository implements SyncRepository {
       } else if (change.entityType === 'goal') {
         const record = remote as Goal; const local = await transaction.objectStore('goals').get(record.id)
         if (!local || record.version >= local.version) await transaction.objectStore('goals').put(record)
-      } else {
+      } else if (change.entityType === 'goalAllocation') {
         const record = remote as GoalAllocation; const local = await transaction.objectStore('goalAllocations').get(record.id)
         if (!local || record.version >= local.version) await transaction.objectStore('goalAllocations').put(record)
+      } else {
+        const record = remote as MonthlyClosure; const local = await transaction.objectStore('monthlyClosures').get(record.id)
+        if (!local || record.version >= local.version) await transaction.objectStore('monthlyClosures').put(record)
       }
     }
     await transaction.done
@@ -481,6 +545,13 @@ export class LocalFinanceRepository implements SyncRepository {
     await this.writeLocalChange('goal', 'update', { ...current, archivedAt: archived ? now : null, updatedAt: now }, current.version)
   }
 
+  private async assertMonthOpen(month: string): Promise<void> {
+    const closures = await (await getDatabase()).getAll('monthlyClosures')
+    if (closures.some((item) => !item.deletedAt && item.month === month && item.status === 'closed')) {
+      throw new Error('Este mes está cerrado. Reábrelo desde Plan antes de modificarlo.')
+    }
+  }
+
   private async writeLocalChange(entityType: EntityType, kind: SyncOperation['kind'], payload: SyncEntity, baseVersion: number) {
     const database = await getDatabase()
     if (entityType === 'transaction') {
@@ -515,9 +586,13 @@ export class LocalFinanceRepository implements SyncRepository {
       const transaction = database.transaction(['goals', 'outbox', 'meta'], 'readwrite')
       await queueLocalChange(transaction, entityType, kind, payload as Goal, baseVersion)
       await transaction.done
-    } else {
+    } else if (entityType === 'goalAllocation') {
       const transaction = database.transaction(['goalAllocations', 'outbox', 'meta'], 'readwrite')
       await queueLocalChange(transaction, entityType, kind, payload as GoalAllocation, baseVersion)
+      await transaction.done
+    } else {
+      const transaction = database.transaction(['monthlyClosures', 'outbox', 'meta'], 'readwrite')
+      await queueLocalChange(transaction, entityType, kind, normalizeMonthlyClosure(payload as MonthlyClosure), baseVersion)
       await transaction.done
     }
   }
@@ -554,7 +629,8 @@ function normalizeEntity(entityType: EntityType, entity: SyncEntity): SyncEntity
   return entityType === 'transaction' ? normalizeTransaction(entity as Transaction)
     : entityType === 'budget' ? normalizeBudget(entity as Budget)
       : entityType === 'monthlyPlan' ? normalizeMonthlyPlan(entity as MonthlyPlan)
-        : entityType === 'goalAllocation' ? normalizeGoalAllocation(entity as GoalAllocation) : entity
+        : entityType === 'goalAllocation' ? normalizeGoalAllocation(entity as GoalAllocation)
+          : entityType === 'monthlyClosure' ? normalizeMonthlyClosure(entity as MonthlyClosure) : entity
 }
 
 function normalizeBudget(budget: Budget): Budget { return { ...budget, month: normalizeMonthValue(budget.month) } }
@@ -562,6 +638,7 @@ function normalizeMonthlyPlan(plan: MonthlyPlan): MonthlyPlan { return { ...plan
 function normalizeGoalAllocation(allocation: GoalAllocation): GoalAllocation {
   return { ...allocation, date: normalizeDateOnly(allocation.date) ?? allocation.date }
 }
+function normalizeMonthlyClosure(closure: MonthlyClosure): MonthlyClosure { return { ...closure, month: normalizeMonthValue(closure.month) } }
 function normalizeGoalInput(input: GoalInput): GoalInput {
   return { ...input, name: input.name.trim(), icon: input.icon.trim(), note: input.note.trim(),
     targetDate: input.targetDate ? normalizeDateOnly(input.targetDate) ?? input.targetDate : null }
@@ -571,17 +648,17 @@ function normalizeMonthValue(value: string): string {
   return normalizeDateOnly(value)?.slice(0, 7) ?? value
 }
 
-function storeName(entityType: EntityType): 'transactions' | 'accounts' | 'categories' | 'recurringRules' | 'budgets' | 'plannedItems' | 'monthlyPlans' | 'goals' | 'goalAllocations' {
+function storeName(entityType: EntityType): 'transactions' | 'accounts' | 'categories' | 'recurringRules' | 'budgets' | 'plannedItems' | 'monthlyPlans' | 'goals' | 'goalAllocations' | 'monthlyClosures' {
   return entityType === 'transaction' ? 'transactions' : entityType === 'account' ? 'accounts'
     : entityType === 'category' ? 'categories' : entityType === 'recurringRule' ? 'recurringRules'
       : entityType === 'budget' ? 'budgets' : entityType === 'plannedItem' ? 'plannedItems'
-        : entityType === 'monthlyPlan' ? 'monthlyPlans' : entityType === 'goal' ? 'goals' : 'goalAllocations'
+        : entityType === 'monthlyPlan' ? 'monthlyPlans' : entityType === 'goal' ? 'goals' : entityType === 'goalAllocation' ? 'goalAllocations' : 'monthlyClosures'
 }
 
 async function queueLocalChange(transaction: {
   objectStore(name: 'meta'): { get(key: string): Promise<{ value: unknown } | undefined>; put(value: { key: string; value: unknown }): Promise<unknown> }
   objectStore(name: 'outbox'): { put(value: SyncOperation): Promise<unknown> }
-  objectStore(name: 'transactions' | 'accounts' | 'categories' | 'recurringRules' | 'budgets' | 'plannedItems' | 'monthlyPlans' | 'goals' | 'goalAllocations'): { put(value: never): Promise<unknown> }
+  objectStore(name: 'transactions' | 'accounts' | 'categories' | 'recurringRules' | 'budgets' | 'plannedItems' | 'monthlyPlans' | 'goals' | 'goalAllocations' | 'monthlyClosures'): { put(value: never): Promise<unknown> }
 }, entityType: EntityType, kind: SyncOperation['kind'], payload: SyncEntity, baseVersion: number) {
   const sequenceItem = await transaction.objectStore('meta').get('outboxSequence')
   const localSequence = Number(sequenceItem?.value ?? 0) + 1

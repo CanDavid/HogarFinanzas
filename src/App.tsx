@@ -10,8 +10,9 @@ import { PlanView } from './components/PlanView'
 import { PortfolioView } from './components/PortfolioView'
 import { RecurringManager } from './components/RecurringManager'
 import { LocalFinanceRepository } from './data/localFinanceRepository'
+import { isMonthClosed } from './domain/closures'
 import { calculatePortfolio } from './domain/finance'
-import type { Account, Budget, Category, Goal, GoalAllocation, MonthlyPlan, PlannedItem, RecurringRule, RecurringRuleInput, Session, Transaction, TransactionInput, TransactionKind, UserId } from './domain/types'
+import type { Account, Budget, Category, Goal, GoalAllocation, MonthlyClosure, MonthlyPlan, PlannedItem, RecurringRule, RecurringRuleInput, Session, Transaction, TransactionInput, TransactionKind, UserId } from './domain/types'
 import { AppsScriptClient } from './services/appsScriptClient'
 import { SingleFlightRunner } from './services/singleFlightRunner'
 import { SyncEngine } from './services/syncEngine'
@@ -33,6 +34,7 @@ export default function App() {
   const [monthlyPlans, setMonthlyPlans] = useState<MonthlyPlan[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
   const [goalAllocations, setGoalAllocations] = useState<GoalAllocation[]>([])
+  const [monthlyClosures, setMonthlyClosures] = useState<MonthlyClosure[]>([])
   const [session, setSession] = useState<Session | null>(null)
   const [page, setPage] = useState<Page>('home')
   const [movementIntent, setMovementIntent] = useState<MovementIntent>({ key: 0, mode: 'list' })
@@ -43,13 +45,13 @@ export default function App() {
   const [online, setOnline] = useState(navigator.onLine)
 
   const refreshLocal = useCallback(async () => {
-    const [items, accountItems, categoryItems, ruleItems, budgetItems, planItems, monthlyItems, goalItems, allocationItems, pending, failed] = await Promise.all([
+    const [items, accountItems, categoryItems, ruleItems, budgetItems, planItems, monthlyItems, goalItems, allocationItems, closureItems, pending, failed] = await Promise.all([
       repository.listTransactions(), repository.listAccounts(), repository.listCategories(), repository.listRecurringRules(),
       repository.listBudgets(), repository.listPlannedItems(), repository.listMonthlyPlans(), repository.listGoals(), repository.listGoalAllocations(),
-      repository.pendingOperations(), repository.failedOperations(),
+      repository.listMonthlyClosures(), repository.pendingOperations(), repository.failedOperations(),
     ])
     setTransactions(items); setAccounts(accountItems); setCategories(categoryItems); setRecurringRules(ruleItems)
-    setBudgets(budgetItems); setPlannedItems(planItems); setMonthlyPlans(monthlyItems); setGoals(goalItems); setGoalAllocations(allocationItems); setPendingCount(pending.length)
+    setBudgets(budgetItems); setPlannedItems(planItems); setMonthlyPlans(monthlyItems); setGoals(goalItems); setGoalAllocations(allocationItems); setMonthlyClosures(closureItems); setPendingCount(pending.length)
     if (failed.length > 0) { setSyncState('error'); setSyncMessage(`${failed.length} cambio${failed.length === 1 ? '' : 's'} necesita revisión`) }
   }, [])
 
@@ -90,9 +92,10 @@ export default function App() {
       <div className="topbar-actions"><button className="settings-button" onClick={() => setPage('settings')} aria-label="Abrir configuración">⚙</button><button className="avatar" onClick={logout} aria-label={`Cerrar sesión de ${session.userId}`}>{session.userId[0].toUpperCase()}</button></div></header>
     <main>
       <button className={`sync-banner ${syncState}`} onClick={() => void synchronize()} disabled={syncState === 'syncing'}><span aria-hidden="true">{online ? '●' : '○'}</span><span>{syncMessage}{pendingCount ? ` · ${pendingCount} pendientes` : ''}</span><span aria-hidden="true">↻</span></button>
-      {page === 'home' && <HomeView transactions={transactions} accounts={accounts} categories={categories} goals={goals} allocations={goalAllocations} onAddMovement={() => openMovements('add')} onOpenMovements={() => openMovements('list')} onOpenAccounts={() => setPage('accounts')} onOpenCategories={() => setPage('categories')} onOpenPortfolio={() => setPage('portfolio')} onOpenGoals={() => setPage('goals')} />}
-      {page === 'movements' && <MovementsView key={movementIntent.key} transactions={transactions} accounts={accounts} categories={categories} startAdding={movementIntent.mode === 'add'} initialKind={movementIntent.initialKind} initialAccountId={movementIntent.initialAccountId} onSave={save} onDelete={remove} />}
+      {page === 'home' && <HomeView transactions={transactions} accounts={accounts} categories={categories} goals={goals} allocations={goalAllocations} closures={monthlyClosures} onAddMovement={() => openMovements('add')} onOpenMovements={() => openMovements('list')} onOpenAccounts={() => setPage('accounts')} onOpenCategories={() => setPage('categories')} onOpenPortfolio={() => setPage('portfolio')} onOpenGoals={() => setPage('goals')} />}
+      {page === 'movements' && <MovementsView key={movementIntent.key} transactions={transactions} accounts={accounts} categories={categories} closures={monthlyClosures} startAdding={movementIntent.mode === 'add'} initialKind={movementIntent.initialKind} initialAccountId={movementIntent.initialAccountId} onSave={save} onDelete={remove} />}
       {page === 'plan' && <PlanView transactions={transactions} rules={recurringRules} plannedItems={plannedItems} budgets={budgets} monthlyPlans={monthlyPlans} accounts={accounts} categories={categories}
+        goals={goals} goalAllocations={goalAllocations} closures={monthlyClosures}
         onCreateItem={(input) => afterLocalChange(() => repository.createPlannedItem(input, session.userId))}
         onUpdateItem={(id, input) => afterLocalChange(() => repository.updatePlannedItem(id, input))}
         onDeleteItem={(id) => afterLocalChange(() => repository.deletePlannedItem(id))}
@@ -100,7 +103,27 @@ export default function App() {
         onSetRecurringStatus={(id, date, status) => afterLocalChange(() => repository.setRecurringOccurrenceStatus(id, date, status, session.userId))}
         onMaterialize={(item) => afterLocalChange(() => item.source === 'recurring' ? repository.materializeRecurringOccurrence(item.recurringRuleId!, item.date, session.userId) : repository.materializePlannedItem(item.id, session.userId))}
         onSetBudget={(month, categoryId, amount) => afterLocalChange(() => repository.setBudget(month, categoryId, amount, session.userId))}
-        onSetDistribution={(month, savings, investment) => afterLocalChange(() => repository.setMonthlyPlan(month, savings, investment, session.userId))} />}
+        onSetDistribution={(month, savings, investment) => afterLocalChange(() => repository.setMonthlyPlan(month, savings, investment, session.userId))}
+        onCloseMonth={(input, omitted) => afterLocalChange(async () => {
+          for (const item of omitted) {
+            if (item.source === 'recurring') await repository.setRecurringOccurrenceStatus(item.recurringRuleId!, item.date, 'omitted', session.userId)
+            else await repository.setPlannedItemStatus(item.id, 'omitted')
+          }
+          const nextMonth = addMonth(input.month, 1)
+          if (!isMonthClosed(nextMonth, monthlyClosures)) {
+            for (const budget of budgets.filter((item) => !item.deletedAt && item.month === input.month && item.amountCents > 0)) {
+              if (!budgets.some((item) => !item.deletedAt && item.month === nextMonth && item.categoryId === budget.categoryId)) {
+                await repository.setBudget(nextMonth, budget.categoryId, budget.amountCents, session.userId)
+              }
+            }
+            const distribution = monthlyPlans.find((item) => !item.deletedAt && item.month === input.month)
+            if (distribution && !monthlyPlans.some((item) => !item.deletedAt && item.month === nextMonth)) {
+              await repository.setMonthlyPlan(nextMonth, distribution.savingsAllocationCents, distribution.investmentAllocationCents, session.userId)
+            }
+          }
+          await repository.closeMonth(input, session.userId)
+        })}
+        onReopenMonth={(month) => afterLocalChange(() => repository.reopenMonth(month, session.userId))} />}
       {page === 'goals' && <GoalsView goals={goals} allocations={goalAllocations} netWorthCents={portfolio.netWorthCents}
         onCreate={(input, initialAmountCents) => afterLocalChange(() => repository.createGoal(input, initialAmountCents, session.userId))}
         onUpdate={(id, input) => afterLocalChange(() => repository.updateGoal(id, input))}
@@ -152,3 +175,4 @@ function Login({ onAuthenticated }: { onAuthenticated(session: Session): void })
 
 function isMainTab(page: Page): page is MainTab { return ['home', 'movements', 'plan', 'goals', 'analysis'].includes(page) }
 function pageTitle(page: Page): string { return page === 'home' ? 'Inicio' : page === 'movements' ? 'Movimientos' : page === 'plan' ? 'Plan' : page === 'goals' ? 'Objetivos' : page === 'analysis' ? 'Análisis' : page === 'accounts' ? 'Cuentas' : page === 'categories' ? 'Categorías' : page === 'recurring' ? 'Recurrentes' : page === 'portfolio' ? 'Patrimonio' : 'Ajustes' }
+function addMonth(month: string, offset: number): string { const [year, value] = month.split('-').map(Number); const date = new Date(Date.UTC(year, value - 1 + offset, 1)); return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}` }

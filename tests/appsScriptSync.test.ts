@@ -43,6 +43,7 @@ class FakeSpreadsheet {
     this.add('MonthlyPlans', ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'])
     this.add('Goals', ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'])
     this.add('GoalAllocations', ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'])
+    this.add('MonthlyClosures', ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'])
     this.add('SyncOperations', ['operationId', 'processedAt', 'resultJson', 'entityType'])
   }
   add(name: string, headers: string[]) { this.sheets.set(name, new FakeSheet(name, headers)) }
@@ -54,6 +55,7 @@ interface ScriptContext {
   applyOperation_(spreadsheet: FakeSpreadsheet, operation: unknown, userId: string): { ok: boolean; record: Record<string, unknown> }
   pullChanges_(cursor: number, spreadsheet: FakeSpreadsheet): { changes: Record<string, unknown>[]; cursor: number }
   migratePhase6(): { schemaVersion: number; goalColumns: number; goalAllocationColumns: number }
+  migratePhase7(): { schemaVersion: number; monthlyClosureColumns: number }
 }
 
 function loadScript(activeSpreadsheet?: FakeSpreadsheet): ScriptContext {
@@ -99,6 +101,12 @@ describe('Apps Script sync core with Sheets adapter', () => {
     expect(spreadsheet.getSheetByName('Goals')?.rows[0]).toContain('targetAmountCents')
     expect(spreadsheet.getSheetByName('GoalAllocations')?.rows[0]).toContain('goalId')
     expect(spreadsheet.getSheetByName('Transactions')?.rows).toHaveLength(2)
+  })
+
+  it('migrates the monthly closure sheet to phase 7 without removing existing rows', () => {
+    const spreadsheet = new FakeSpreadsheet(); const result = loadScript(spreadsheet).migratePhase7()
+    expect(result).toEqual({ schemaVersion: 7, monthlyClosureColumns: 26 })
+    expect(spreadsheet.getSheetByName('MonthlyClosures')?.rows[0]).toEqual(expect.arrayContaining(['month', 'status', 'netWorthCents', 'goalReservedCents']))
   })
 
   it('replays the saved result without duplicating a retried create', () => {
@@ -268,5 +276,24 @@ describe('Apps Script sync core with Sheets adapter', () => {
     expect(first.record).toMatchObject({ amountCents: 30_000, createdBy: 'esther' })
     expect(script.pullChanges_(0, spreadsheet).changes.map((item) => item.entityType)).toEqual(expect.arrayContaining(['goal', 'goalAllocation']))
     expect(spreadsheet.getSheetByName('GoalAllocations')?.rows).toHaveLength(3)
+  })
+
+  it('synchronizes a closure, blocks the month and permits edits after reopening', () => {
+    const spreadsheet = new FakeSpreadsheet(); const script = loadScript(spreadsheet); script.migratePhase7()
+    const now = '2026-08-16T10:00:00.000Z'
+    script.applyOperation_(spreadsheet, operation('before-close', 'create'), 'david')
+    const closure = { id: 'closure-2026-08', createdAt: now, updatedAt: now, deletedAt: null, createdBy: 'david', version: 0, changeSequence: 0,
+      month: '2026-08', status: 'closed', revision: 1, closedAt: now, closedBy: 'david', reopenedAt: null, reopenedBy: null,
+      transactionCount: 0, pendingIncomeCount: 0, pendingExpenseCount: 0, actualIncomeCents: 0, actualExpenseCents: 0,
+      realSurplusCents: 0, projectedSurplusCents: 0, netWorthCents: 50_000, liquidityCents: 40_000,
+      savingsCents: 10_000, investmentCents: 5_000, goalReservedCents: 3_000 }
+    const closed = script.applyOperation_(spreadsheet, { operationId: 'close', entityType: 'monthlyClosure', kind: 'create', recordId: closure.id, payload: closure }, 'david')
+    expect(closed.record).toMatchObject({ status: 'closed', revision: 1 })
+    expect(() => script.applyOperation_(spreadsheet, operation('closed-create', 'update', 'Cambio bloqueado'), 'david')).toThrow('mes está cerrado')
+    expect(() => script.applyOperation_(spreadsheet, operation('closed-delete', 'delete'), 'david')).toThrow('mes está cerrado')
+    const open = { ...closed.record, status: 'open', reopenedAt: now, reopenedBy: 'esther' }
+    script.applyOperation_(spreadsheet, { operationId: 'reopen', entityType: 'monthlyClosure', kind: 'update', recordId: closure.id, payload: open }, 'esther')
+    expect(script.applyOperation_(spreadsheet, operation('open-update', 'update', 'Cambio permitido'), 'david').record.concept).toBe('Cambio permitido')
+    expect(script.pullChanges_(0, spreadsheet).changes.map((item) => item.entityType)).toContain('monthlyClosure')
   })
 })

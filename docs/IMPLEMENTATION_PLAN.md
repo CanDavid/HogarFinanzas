@@ -287,7 +287,7 @@ El usuario confirmó el 2026-08-15 que la matriz de Fase 5 y los hotfixes de pre
 
 ## Fase 6 — Objetivos virtuales y patrimonio
 
-Estado: **implementada y desplegada; pendiente de validación en ambos iPhone — 2026-08-15**.
+Estado: **completada y validada en ambos iPhone — 2026-08-16**.
 
 ### Alcance
 
@@ -327,9 +327,48 @@ Estado: **implementada y desplegada; pendiente de validación en ambos iPhone �
 - Hotfix PWA `6.0.1`: el texto dirige a la pestaña Objetivos y aclara que la distribución mensual no crea aportaciones ni mueve dinero. No enlaza ambos modelos ni anticipa funcionalidad de Fase 7.
 - Cobertura: prueba de interfaz que exige el nuevo mensaje y evita que vuelva a aparecer la referencia futura a Fase 6.
 
+### Cierre
+
+El usuario confirmó el 2026-08-16 que toda la matriz de `IPHONE_PHASE6.md`, incluido el texto corregido de Distribución, funciona correctamente y autorizó avanzar a Fase 7.
+
+## Fase 7 — Cierres, snapshots, reapertura y recierre
+
+Estado: **implementada y desplegada; pendiente de validación en ambos iPhone — 2026-08-16**.
+
+### Alcance
+
+- Checklist de cierre con movimientos, previstos pendientes, resultado real, patrimonio, ahorro, inversión y reserva virtual de objetivos.
+- Opción de mantener los previstos pendientes o marcarlos como omitidos antes del cierre.
+- Snapshot mensual sincronizable con UUID determinista, revisión, autor y fecha de cierre/reapertura, cifras de plan y patrimonio.
+- Mes cerrado de solo lectura en Movimientos y las tres secciones de Plan; reapertura explícita y posterior recierre con una revisión nueva.
+- Al cerrar, los presupuestos positivos y la distribución se copian al mes siguiente solo cuando este aún no tiene configuración. Las recurrencias siguen generándose desde sus reglas existentes.
+- Inicio compara el patrimonio actual con el último snapshot cerrado anterior.
+- IndexedDB versión 6 y Apps Script/Sheets esquema 7 con `MonthlyClosures` funcional.
+- El servidor protege el bloqueo incluso ante clientes desactualizados. Una mutación optimista rechazada con `month_closed` se revierte al registro canónico —o se elimina si era un alta— para que ambos iPhone converjan sin cambios imposibles en cola.
+
+### Deliberadamente fuera
+
+- Gráficos, tendencias, comparativas históricas y análisis por categoría, reservados para Fase 8.
+- Exportación/importación, copias y endurecimiento final, reservados para Fase 9.
+- Modificar snapshots cerrados o eliminar cierres; solo se permite reabrir y volver a cerrar.
+
+### Criterio de salida
+
+- Lint, typecheck, tests, build, CI y Pages verdes; historial sin secretos.
+- `migratePhase7` ejecutada y Web App `7.0.0-phase7` desplegada conservando la URL.
+- En ambos iPhone: cierre con ambas decisiones sobre pendientes, bloqueo completo, reapertura/recierre, arrastre no destructivo al mes siguiente, persistencia offline, conflicto con un segundo móvil y convergencia.
+- La fase permanecerá pendiente hasta recibir el resultado real de `IPHONE_PHASE7.md`.
+
+### Validación automatizada local
+
+- `npm run lint`, `npm run typecheck` y `npm run build`: verdes, sin warnings; app shell y service worker generados con 7 recursos precacheados.
+- `npm test`: 20 archivos y 106 tests verdes. Incluyen snapshot firmado en céntimos, cierre/reapertura/recierre, bloqueo local/remoto, rollback de una mutación rechazada, UI de solo lectura, migración Sheets e incremental pull de cierres.
+- `migratePhase7` ejecutada correctamente desde el editor autorizado: conserva datos, clave y sesiones y deja el esquema 7 con 26 columnas en `MonthlyClosures`.
+- Apps Script promovido a la versión inmutable 12, descripción `version7.0.0-phase7`, conservando la misma URL pública. Health check real: HTTP 200 y `7.0.0-phase7`.
+- Pendiente completar CI/Pages, revisión final del diff/historial y aceptación real.
+
 ## Fases siguientes — no iniciadas
 
-- **Fase 7:** cierres, snapshots, reapertura y recierre.
 - **Fase 8:** análisis y tendencias accesibles.
 - **Fase 9:** robustez, rendimiento, accesibilidad, exportación/importación y copias.
 

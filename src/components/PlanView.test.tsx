@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { localDateOnly } from '../domain/dates'
-import type { Account, Budget, Category, PlannedItem, RecurringRule, Transaction } from '../domain/types'
+import type { Account, Budget, Category, MonthlyClosure, PlannedItem, RecurringRule, Transaction } from '../domain/types'
 import { PlanView } from './PlanView'
 
 const today = localDateOnly(); const month = today.slice(0, 7)
@@ -18,8 +18,10 @@ const budget: Budget = { ...sync, id: 'budget', month, categoryId: category.id, 
 
 function props() {
   return { transactions: [], rules: [rule], plannedItems: [item], budgets: [budget], monthlyPlans: [], accounts: [account], categories: [category],
+    goals: [], goalAllocations: [], closures: [],
     onCreateItem: vi.fn(), onUpdateItem: vi.fn(), onDeleteItem: vi.fn(), onSetItemStatus: vi.fn(), onSetRecurringStatus: vi.fn(),
-    onMaterialize: vi.fn().mockResolvedValue(undefined), onSetBudget: vi.fn().mockResolvedValue(undefined), onSetDistribution: vi.fn().mockResolvedValue(undefined) }
+    onMaterialize: vi.fn().mockResolvedValue(undefined), onSetBudget: vi.fn().mockResolvedValue(undefined), onSetDistribution: vi.fn().mockResolvedValue(undefined),
+    onCloseMonth: vi.fn().mockResolvedValue(undefined), onReopenMonth: vi.fn().mockResolvedValue(undefined) }
 }
 
 describe('PlanView', () => {
@@ -72,5 +74,30 @@ describe('PlanView', () => {
     expect(screen.getByLabelText(/Cálculo: 125,00.*menos 4360,00.*menos 1833,00/)).toBeInTheDocument()
     expect(screen.getByText('Gastos reales totales').nextSibling).toHaveTextContent('4360,00')
     expect(screen.getByText('Variable pendiente de gastar').nextSibling).toHaveTextContent('1833,00')
+  })
+
+  it('reviews pending items and creates a financial snapshot when closing', async () => {
+    const callbacks = props(); render(<PlanView {...callbacks} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar mes' }))
+    expect(screen.getByText('2', { selector: '.closure-checklist b' })).toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('Marcarlos como omitidos'))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar cierre' }))
+    await vi.waitFor(() => expect(callbacks.onCloseMonth).toHaveBeenCalledWith(expect.objectContaining({ month, pendingExpenseCount: 2,
+      actualIncomeCents: 0, actualExpenseCents: 0, realSurplusCents: 0 }), expect.arrayContaining([
+        expect.objectContaining({ concept: 'Internet' }), expect.objectContaining({ concept: 'Seguro puntual' }),
+      ])))
+  })
+
+  it('makes a closed month read-only and lets the household reopen it', async () => {
+    const callbacks = props(); const closure: MonthlyClosure = { ...sync, id: 'closure', month, status: 'closed', revision: 1,
+      closedAt: `${today}T20:00:00.000Z`, closedBy: 'david', reopenedAt: null, reopenedBy: null, transactionCount: 0,
+      pendingIncomeCount: 0, pendingExpenseCount: 0, actualIncomeCents: 0, actualExpenseCents: 0, realSurplusCents: 0,
+      projectedSurplusCents: 0, netWorthCents: 0, liquidityCents: 0, savingsCents: 0, investmentCents: 0, goalReservedCents: 0 }
+    render(<PlanView {...callbacks} closures={[closure]} />)
+    expect(screen.queryByRole('button', { name: 'Añadir' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Presupuestos' }))
+    expect(screen.queryByRole('button', { name: 'Guardar presupuesto' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Reabrir mes' }))
+    await vi.waitFor(() => expect(callbacks.onReopenMonth).toHaveBeenCalledWith(month))
   })
 })

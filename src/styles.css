@@ -89,6 +89,8 @@ form > button, .form-actions button { min-height: 2.8rem; padding: .65rem 1rem; 
 .movement-main > strong { text-align: right; }
 .movement-main > strong.expense { color: #a84a33; }
 .movement-main > strong.income { color: #287159; }
+.movement-main:disabled { color: inherit; opacity: .72; cursor: default; }
+.closed-badge { display: inline-block; margin-top: .2rem; padding: .08rem .35rem; border-radius: 1rem; color: #685a32; background: #f3ebcf; font-size: .62rem; font-weight: 750; }
 .kind-icon { display: grid; place-items: center; width: 2.15rem; height: 2.15rem; border-radius: .7rem; background: #e7ebe7; font-weight: 900; }
 .kind-icon.income { color: #287159; background: #dcebe4; }
 .kind-icon.expense { color: #a84a33; background: #f2dfd9; }
@@ -133,6 +135,22 @@ form > button, .form-actions button { min-height: 2.8rem; padding: .65rem 1rem; 
 .plan-metrics span, .distribution-summary span { color: #687873; font-size: .7rem; }
 .plan-metrics strong, .distribution-summary strong { overflow-wrap: anywhere; margin-top: .15rem; font-size: .95rem; }
 .plan-nav { margin: 0; }
+.closure-entry { display: grid; gap: .4rem; }
+.closure-entry .secondary-action { width: 100%; }
+.closure-entry small { color: #6b7a75; text-align: center; }
+.closure-card, .closure-form { display: grid; gap: .8rem; }
+.closure-card p, .closure-form p { margin: 0; color: #52655e; }
+.closure-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; }
+.closure-summary > div { min-width: 0; padding: .65rem; border-radius: .75rem; background: #f2f5f1; }
+.closure-summary span, .closure-summary strong { display: block; overflow-wrap: anywhere; }
+.closure-summary span { color: #687873; font-size: .68rem; }
+.closure-summary strong { margin-top: .15rem; }
+.closure-checklist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; }
+.closure-checklist span { padding: .55rem; border-radius: .7rem; background: #f2f5f1; color: #5c6d67; font-size: .72rem; }
+.closure-checklist b { display: block; color: #173f35; font-size: .9rem; }
+.closure-form fieldset { display: grid; gap: .4rem; margin: 0; padding: .75rem; border: 1px solid #d9dfda; border-radius: .8rem; }
+.closure-form legend { padding: 0 .25rem; color: #344b43; font-weight: 750; }
+.closure-form .check { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: .5rem; }
 .plan-section { display: grid; gap: .85rem; }
 .plan-section > h2 { margin: 0; }
 .plan-items, .budget-list { margin: 0; padding: 0; list-style: none; }
@@ -149,6 +167,7 @@ form > button, .form-actions button { min-height: 2.8rem; padding: .65rem 1rem; 
 .budget-form { margin: 0; }
 .budget-list li { border-bottom: 1px solid #dddcd4; }
 .budget-main { display: grid; gap: .3rem; width: 100%; padding: .8rem .15rem; border: 0; color: inherit; background: transparent; text-align: left; }
+.budget-main:disabled { opacity: .78; cursor: default; }
 .budget-main span, .budget-main small { color: #6b7a75; font-size: .75rem; }
 .budget-main progress { width: 100%; accent-color: #e15f3b; }
 .budget-main progress.over-budget { accent-color: #c43f2b; }
@@ -223,4 +242,5 @@ footer { padding: 1rem 0 2rem; color: #71817b; text-align: center; font-size: .7
 .center { min-height: 100vh; display: grid; place-items: center; }
 @media (min-width: 42rem) { .summary { grid-template-columns: repeat(3, 1fr); } .summary .balance { grid-column: auto; } }
 @media (max-width: 23rem) { .home-links, .settings-links, .filter-grid { grid-template-columns: 1fr; } .metric-grid { gap: .35rem; } .movement-toolbar { grid-template-columns: minmax(0, 1fr) auto; } .filter-button { grid-row: 2; grid-column: 1 / -1; } .goal-actions { grid-template-columns: 1fr; } }
+@media (prefers-color-scheme: dark) { .closure-summary > div, .closure-checklist span { background: #18241f; } .closure-card p, .closure-form p, .closure-entry small { color: #aebfb8; } .closure-form fieldset { border-color: #30423c; } .closure-form legend, .closure-checklist b { color: #d4e1dc; } .closed-badge { color: #f1e3af; background: #564c2d; } }
 @media (prefers-color-scheme: dark) { :root { color: #eef5f1; background: #0f1815; } body { background: radial-gradient(circle at top right, #1d3c33, transparent 32rem), #0f1815; } .card, .summary div, .sync-banner, .filter-button, .recurrence-fields, .plan-metrics > div, .distribution-summary > div, .month-selector button, .goal-stats > div, .portfolio-metrics > div, .secondary-action { border-color: #30423c; background: #18241f; } .summary .balance, .segmented button[aria-pressed="true"], .section-nav button[aria-pressed="true"], .hero-card, .plan-hero, .goals-hero { background: #397864; } input, select, textarea { border-color: #40554d; color: #eef5f1; background: #111c18; } label, .login legend { color: #d4e1dc; } .eyebrow, .login .intro, .login summary, .privacy, .placeholder-view p, .session-card p, .management-intro, .recurrence-options small, .month-selector small, .phase-note, .goal-detail-hero > p, .goal-note, .portfolio-explanation p { color: #aebfb8; } .segmented, .section-nav, .settings-button, .goal-icon { background: #26352f; } .segmented button, .section-nav button, .settings-button, .back-button, .back-link, .close-button, .filter-button, .month-selector button, .secondary-action { color: #d0ddd8; } .movements li, .management li, .plan-items li, .budget-list li, .goal-list > li, .allocation-history li, .portfolio-accounts li { border-color: #2b3934; } .form-actions .secondary { color: #d4dfda; background: #2a3933; } .movement-group h3 { color: #aebfb8; background: #0f1815e8; } .bottom-nav { border-color: #2f4039; background: #14201cf2; } .bottom-nav button[aria-current="page"] { color: #dff4eb; background: #315f50; } .metric-grid span, .home-links span, .settings-links span, .plan-metrics span, .distribution-summary span, .goal-stats span, .portfolio-metrics span, .goal-main small, .allocation-history small, .portfolio-accounts small { color: #aebfb8; } .text-action { color: #8bc4af; } .recurring-badge { color: #dff4eb; background: #315f50; } .budget-main small.over-budget { color: #ff9b84; } }

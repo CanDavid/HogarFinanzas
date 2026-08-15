@@ -103,6 +103,18 @@ La automatización autorizada puede ejecutar `migratePhase6` y promover después
 
 No ejecutes **Inicializar o cambiar clave**: `migratePhase6` conserva la clave, las sesiones y todos los datos existentes.
 
+### Migración a Fase 7
+
+La automatización autorizada puede ejecutar `migratePhase7` y promover después la implementación con `npm run apps-script:deploy -- version7.0.0-phase7`. Si se realiza manualmente:
+
+1. Sustituye `Code.gs` por la versión de Fase 7 y guarda el proyecto.
+2. Recarga la hoja y ejecuta **Hogar Finanzas → Migrar a Fase 7**.
+3. Comprueba `schemaVersion: 7` y `monthlyClosureColumns: 26`.
+4. Verifica que `MonthlyClosures` tiene las nuevas cabeceras y que todas las hojas y filas anteriores se conservan.
+5. Crea una versión nueva en la misma implementación y confirma que el health check devuelve `7.0.0-phase7` antes de cerrar un mes desde los iPhone.
+
+No ejecutes **Inicializar o cambiar clave**: `migratePhase7` conserva la clave, las sesiones y todos los datos existentes.
+
 ## Diagnóstico seguro
 
 - `not_initialized`: faltó ejecutar el inicializador.

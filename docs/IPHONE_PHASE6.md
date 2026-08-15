@@ -57,4 +57,4 @@ La Fase 6 está implementada, pero solo quedará completada cuando David y Esthe
 
 Indica si todos los bloques han salido bien. Si alguno falla, incluye: iPhone de David o Esther, bloque/paso, texto exacto del error, cifra esperada y cifra mostrada. No introduzcas datos financieros reales en capturas públicas.
 
-No pruebes cierres mensuales: pertenecen a la Fase 7 y todavía no están implementados.
+Esta matriz fue confirmada satisfactoriamente por el usuario el 2026-08-16. Los cierres mensuales se validan por separado en `IPHONE_PHASE7.md`.

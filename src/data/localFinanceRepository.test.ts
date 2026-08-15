@@ -208,8 +208,38 @@ describe('LocalFinanceRepository', () => {
     expect(await repository.pendingOperations()).toEqual([])
     expect(await repository.failedOperations()).toEqual([])
   })
+
+  it('closes, locks, reopens and closes a month again with a new snapshot revision', async () => {
+    const repository = new LocalFinanceRepository()
+    const first = await repository.closeMonth(closureInput(), 'david')
+    expect(first).toMatchObject({ month: '2026-08', status: 'closed', revision: 1, closedBy: 'david' })
+    await expect(repository.createTransaction(input('expense', 500), 'esther')).rejects.toThrow('mes está cerrado')
+    await expect(repository.setBudget('2026-08', 'food', 10_000, 'esther')).rejects.toThrow('mes está cerrado')
+    const reopened = await repository.reopenMonth('2026-08', 'esther')
+    expect(reopened).toMatchObject({ status: 'open', revision: 1, reopenedBy: 'esther' })
+    await repository.createTransaction(input('expense', 500), 'esther')
+    const second = await repository.closeMonth({ ...closureInput(), transactionCount: 1, actualExpenseCents: 500, realSurplusCents: 9_500 }, 'esther')
+    expect(second).toMatchObject({ status: 'closed', revision: 2, transactionCount: 1, closedBy: 'esther' })
+    expect(await repository.listMonthlyClosures()).toHaveLength(1)
+  })
+
+  it('rolls back a mutation rejected because another device closed the month', async () => {
+    const repository = new LocalFinanceRepository()
+    const created = await repository.createTransaction(input('expense', 100), 'david')
+    const [operation] = await repository.pendingOperations()
+    await repository.applyOperationResults([{ operationId: operation.operationId, ok: false, entityType: 'transaction',
+      error: { code: 'month_closed', message: 'El mes está cerrado.', permanent: true } }])
+    expect((await repository.listTransactions()).some((item) => item.id === created.id)).toBe(false)
+    expect(await repository.pendingOperations()).toEqual([])
+  })
 })
 
 function input(kind: 'income' | 'expense', amountCents: number) {
   return { kind, amountCents, concept: kind === 'income' ? 'Ingreso' : 'Compra', note: '', date: '2026-08-14', accountId: 'account-1', categoryId: 'category-1', sourceAccountId: null, destinationAccountId: null }
+}
+
+function closureInput() {
+  return { month: '2026-08', transactionCount: 0, pendingIncomeCount: 1, pendingExpenseCount: 2, actualIncomeCents: 10_000,
+    actualExpenseCents: 0, realSurplusCents: 10_000, projectedSurplusCents: 4_000, netWorthCents: 50_000,
+    liquidityCents: 40_000, savingsCents: 10_000, investmentCents: 5_000, goalReservedCents: 3_000 }
 }

@@ -24,7 +24,7 @@ React UI
 
 La UI siempre lee IndexedDB y escribe localmente antes de intentar red. El dominio no importa React, IndexedDB ni Google. Repositorio y transporte son sustituibles en tests.
 
-## 3. Modelo hasta Fase 6
+## 3. Modelo hasta Fase 7
 
 ```ts
 type UserId = 'david' | 'esther'
@@ -130,10 +130,33 @@ interface GoalAllocation {
   date: string
   note: string
 }
+
+interface MonthlyClosure {
+  // metadatos SyncableRecord
+  month: string
+  status: 'closed' | 'open'
+  revision: number
+  closedAt: string
+  closedBy: UserId
+  reopenedAt: string | null
+  reopenedBy: UserId | null
+  transactionCount: number
+  pendingIncomeCount: number
+  pendingExpenseCount: number
+  actualIncomeCents: number
+  actualExpenseCents: number
+  realSurplusCents: number
+  projectedSurplusCents: number
+  netWorthCents: number
+  liquidityCents: number
+  savingsCents: number
+  investmentCents: number
+  goalReservedCents: number
+}
 ```
 
 - UUID en cliente; timestamps ISO-8601 UTC; `date` es `YYYY-MM-DD`.
-- Dinero como entero seguro positivo en céntimos, validado con `Number.isSafeInteger`.
+- Dinero como entero seguro en céntimos, validado con `Number.isSafeInteger`; solo ajustes, retiradas y saldos/snapshots que lo admiten pueden ser negativos.
 - `transfer` es un único movimiento con origen/destino; `adjustment` aplica una variación firmada a una cuenta. Ninguno cuenta como ingreso o gasto.
 - La eliminación asigna `deletedAt`; no borra la fila compartida.
 - Cuentas y categorías con histórico se archivan mediante `archivedAt`; no se eliminan. Reactivar asigna `archivedAt = null` como una actualización sincronizable normal.
@@ -143,16 +166,18 @@ interface GoalAllocation {
 - Un previsto se considera realizado por la existencia de su movimiento enlazado, no por un estado mutable duplicado. Los previstos omitidos no entran en la proyección.
 - El presupuesto variable pertenece a un mes y categoría de gasto. La distribución mensual entre ahorro, inversión y sin asignar es una intención y no mueve dinero.
 - Las asignaciones a objetivos son apuntes virtuales: no crean movimientos, no cambian saldos y no alteran el patrimonio. Un objetivo completado conserva su reserva; archivarlo la libera sin borrar el historial.
+- Un cierre es un snapshot inmutable mientras está cerrado. Reabrir conserva la fotografía y recerrar actualiza cifras e incrementa `revision`; nunca se elimina desde la aplicación.
 
 ## 4. IndexedDB
 
-Base `hogar-finanzas`, versión 5:
+Base `hogar-finanzas`, versión 6:
 
 - `transactions`, clave `id`, incluidos tombstones recibidos;
 - `accounts` y `categories`, clave `id`, incluidos registros archivados;
 - `recurringRules`, clave `id`, incluidas reglas pausadas y tombstones recibidos;
 - `budgets`, `plannedItems` y `monthlyPlans`, clave `id`, incluidos tombstones recibidos;
 - `goals` y `goalAllocations`, clave `id`; el historial de asignaciones es append-only desde la interfaz;
+- `monthlyClosures`, clave `id`, un registro determinista por mes;
 - `outbox`, clave `operationId`, operaciones pendientes y errores;
 - `meta`, clave `key`, para cursor, sesión y URL pública.
 
@@ -177,6 +202,7 @@ El POST usa `text/plain;charset=utf-8`, sigue la redirección de ContentService 
 - Presupuestos por mes/categoría, distribuciones por mes y excepciones recurrentes usan UUID deterministas. Altas simultáneas de ambos iPhone convergen en una sola fila y gana la última aceptada.
 - Cada aportación o retirada usa UUID propio e idempotente. Bajo el lock, el servidor vuelve a calcular lo asignado y rechaza una retirada concurrente que dejaría el total por debajo de cero.
 - Una asignación optimista rechazada de forma permanente se revierte localmente; el siguiente pull conserva el historial canónico y ambos dispositivos convergen sin dejar una operación imposible en la cola.
+- Los cierres por mes usan UUID determinista. El servidor rechaza movimientos y cambios de plan de un mes cerrado, incluido un cliente que aún no hubiera recibido el cierre. El cliente revierte ese cambio optimista al registro canónico y retira la operación imposible de la cola.
 - `LockService.getScriptLock()` serializa el lote y contador global.
 - Cada mutación aceptada incrementa `version` y `changeSequence`.
 - En edición concurrente gana el último cambio aceptado por orden del lock.
@@ -192,7 +218,7 @@ Sheets puede convertir tanto `YYYY-MM-DD` como `YYYY-MM` en celdas de fecha. App
 
 ## 6. Google Sheets y Apps Script
 
-El inicializador idempotente crea todas las hojas. En Fase 6 son funcionales `Meta`, `Users`, `Accounts`, `Categories`, `Transactions`, `RecurringRules`, `Budgets`, `PlannedItems`, `MonthlyPlans`, `Goals`, `GoalAllocations` y `SyncOperations`; cierres continúan reservados. `migratePhase6` amplía las dos hojas de objetivos sin modificar filas existentes.
+El inicializador idempotente crea todas las hojas. En Fase 7 son funcionales `Meta`, `Users`, `Accounts`, `Categories`, `Transactions`, `RecurringRules`, `Budgets`, `PlannedItems`, `MonthlyPlans`, `Goals`, `GoalAllocations`, `MonthlyClosures` y `SyncOperations`. `migratePhase7` amplía `MonthlyClosures` a 26 columnas sin modificar filas existentes.
 
 Apps Script revalida identidad, UUIDs, fechas, concepto e importe. Las operaciones están protegidas por Script Lock.
 
@@ -218,6 +244,8 @@ Apps Script revalida identidad, UUIDs, fechas, concepto e importe. Las operacion
 - Plan permite navegar por mes, gestionar previstos manuales y recurrentes, presupuestos variables y distribución entre ahorro, inversión y remanente. La proyección aplica: ingresos reales + ingresos pendientes − gastos reales − gastos fijos pendientes − presupuesto variable restante. No duplica movimientos ya realizados. La tarjeta principal muestra la ecuación con sus cinco importes y el resumen distingue ingresos pendientes, gastos reales totales y presupuesto variable pendiente de gastar.
 - Objetivos permite crear, editar, completar/reabrir, archivar/desarchivar, aportar y retirar mediante controles explícitos aptos para el teclado de iPhone. Muestra progreso, restante/exceso, historial, ritmo y estimación cuando existen al menos dos meses con actividad.
 - Patrimonio separa total, liquidez, ahorro e inversión, muestra el desglose por cuenta y resta únicamente la reserva virtual para informar del patrimonio sin asignar.
+- Plan permite cerrar el mes actual o uno anterior tras revisar pendientes. Un mes cerrado bloquea movimientos, previstos, presupuestos y distribución hasta una reapertura explícita. El recierre conserva historial de autor/fecha y aumenta la revisión.
+- Inicio muestra la variación de patrimonio contra el último mes cerrado anterior. Los gráficos y tendencias siguen reservados para Fase 8.
 
 ## 9. Build y CI
 
@@ -235,7 +263,7 @@ npm run build
 
 ## 10. Pruebas y aceptación
 
-Automatización: céntimos; saldos, patrimonio, liquidez, transferencias y ajustes; archivado/reactivación; búsqueda, filtros y agrupación; notas; calendarios recurrentes; proyección mensual, presupuestos, omisiones y materialización de previstos; objetivos, asignaciones firmadas, reserva virtual, ritmo y patrimonio sin asignar; UUID e idempotencia local/remota; navegación accesible; tombstones; persistencia y cola por entidad; cursor y sesión; router Apps Script; manifest/service worker.
+Automatización: céntimos; saldos, patrimonio, liquidez, transferencias y ajustes; archivado/reactivación; búsqueda, filtros y agrupación; notas; calendarios recurrentes; proyección mensual, presupuestos, omisiones y materialización de previstos; objetivos, asignaciones firmadas, reserva virtual, ritmo y patrimonio sin asignar; cierres, snapshots, bloqueo, reapertura, recierre y rollback de clientes desactualizados; UUID e idempotencia local/remota; navegación accesible; tombstones; persistencia y cola por entidad; cursor y sesión; router Apps Script; manifest/service worker.
 
 Aceptación real obligatoria:
 
@@ -249,8 +277,7 @@ Si Chromium o Safari no pueden leer la respuesta redirigida por política CORS, 
 
 ## 11. Fases futuras
 
-1. Fase 7: cierres mensuales.
-2. Fase 8: análisis.
-3. Fase 9: robustez, accesibilidad, exportación y copias.
+1. Fase 8: análisis.
+2. Fase 9: robustez, accesibilidad, exportación y copias.
 
 No se anticipan capacidades futuras.

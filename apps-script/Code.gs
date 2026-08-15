@@ -1,6 +1,6 @@
 /* global ContentService, LockService, PropertiesService, Session, SpreadsheetApp, Utilities */
 
-const APP_VERSION = '6.0.0-phase6';
+const APP_VERSION = '7.0.0-phase7';
 const SESSION_DAYS = 30;
 const ALLOWED_USERS = ['david', 'esther'];
 const SHEETS = {
@@ -15,14 +15,16 @@ const SHEETS = {
   MonthlyPlans: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'month', 'savingsAllocationCents', 'investmentAllocationCents'],
   Goals: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'name', 'targetAmountCents', 'targetDate', 'icon', 'note', 'completedAt', 'archivedAt'],
   GoalAllocations: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'goalId', 'amountCents', 'date', 'note'],
-  MonthlyClosures: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence'],
+  MonthlyClosures: ['id', 'createdAt', 'updatedAt', 'deletedAt', 'createdBy', 'version', 'changeSequence', 'month', 'status', 'revision',
+    'closedAt', 'closedBy', 'reopenedAt', 'reopenedBy', 'transactionCount', 'pendingIncomeCount', 'pendingExpenseCount', 'actualIncomeCents',
+    'actualExpenseCents', 'realSurplusCents', 'projectedSurplusCents', 'netWorthCents', 'liquidityCents', 'savingsCents', 'investmentCents', 'goalReservedCents'],
   SyncOperations: ['operationId', 'processedAt', 'resultJson', 'entityType'],
 };
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Hogar Finanzas')
     .addItem('Inicializar o cambiar clave', 'initializeFromPrompt')
-    .addItem('Migrar a Fase 6', 'migratePhase6')
+    .addItem('Migrar a Fase 7', 'migratePhase7')
     .addToUi();
 }
 
@@ -62,7 +64,7 @@ function initializeProject(householdKey) {
   if (!spreadsheet) throw new Error('Vincula este script a una hoja de cálculo.');
   Object.keys(SHEETS).forEach(function (name) { ensureSheet_(spreadsheet, name, SHEETS[name]); });
   seedUsers_(spreadsheet);
-  setMeta_(spreadsheet, 'schemaVersion', '6');
+  setMeta_(spreadsheet, 'schemaVersion', '7');
   if (getMeta_(spreadsheet, 'changeSequence') === null) setMeta_(spreadsheet, 'changeSequence', '0');
   seedCategories_(spreadsheet);
 
@@ -133,6 +135,17 @@ function migratePhase6() {
   return { schemaVersion: 6, goalColumns: SHEETS.Goals.length, goalAllocationColumns: SHEETS.GoalAllocations.length };
 }
 
+function migratePhase7() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  if (!spreadsheet) throw new Error('Vincula este script a una hoja de cálculo.');
+  Object.keys(SHEETS).forEach(function (name) { ensureSheet_(spreadsheet, name, SHEETS[name]); });
+  if (getMeta_(spreadsheet, 'changeSequence') === null) setMeta_(spreadsheet, 'changeSequence', '0');
+  setMeta_(spreadsheet, 'schemaVersion', '7');
+  seedUsers_(spreadsheet);
+  seedCategories_(spreadsheet);
+  return { schemaVersion: 7, monthlyClosureColumns: SHEETS.MonthlyClosures.length };
+}
+
 function login_(request) {
   if (ALLOWED_USERS.indexOf(request.userId) === -1) throw apiError_('invalid_user', 'Usuario no permitido.');
   const properties = PropertiesService.getScriptProperties();
@@ -160,7 +173,12 @@ function sync_(request) {
       try { return applyOperation_(spreadsheet, operation, session.userId); }
       catch (error) {
         const normalized = normalizeError_(error);
-        return { operationId: operation && operation.operationId, ok: false, error: { code: normalized.code, message: normalized.message, permanent: normalized.permanent !== false } };
+        const entityType = operation && operation.entityType ? operation.entityType : 'transaction';
+        const rejected = normalized.code === 'month_closed' && operation && operation.recordId
+          ? findRowObject_(spreadsheet.getSheetByName(entitySheet_(entityType)), 'id', operation.recordId) : null;
+        return { operationId: operation && operation.operationId, ok: false, entityType: entityType,
+          record: rejected ? normalizeEntity_(entityType, rejected.value) : undefined,
+          error: { code: normalized.code, message: normalized.message, permanent: normalized.permanent !== false } };
       }
     });
     const pull = pullChanges_(cursor, spreadsheet);
@@ -235,7 +253,7 @@ function applyOperation_(spreadsheet, operation, userId) {
 
 function pullChanges_(cursor, existingSpreadsheet) {
   const spreadsheet = existingSpreadsheet || openSpreadsheet_();
-  const changes = ['transaction', 'account', 'category', 'recurringRule', 'budget', 'plannedItem', 'monthlyPlan', 'goal', 'goalAllocation'].reduce(function (all, entityType) {
+  const changes = ['transaction', 'account', 'category', 'recurringRule', 'budget', 'plannedItem', 'monthlyPlan', 'goal', 'goalAllocation', 'monthlyClosure'].reduce(function (all, entityType) {
     const sheetName = entitySheet_(entityType);
     const rows = readObjects_(spreadsheet.getSheetByName(sheetName), SHEETS[sheetName]).map(function (row) { return normalizeEntity_(entityType, row); });
     return all.concat(rows.filter(function (record) { return record.changeSequence > cursor; }).map(function (record) { return { entityType: entityType, record: record }; }));
@@ -246,8 +264,14 @@ function pullChanges_(cursor, existingSpreadsheet) {
 
 function validateOperation_(spreadsheet, operation, userId, entityType) {
   validateOperationEnvelope_(operation, entityType);
-  if (operation.kind === 'delete') return;
+  if (entityType === 'monthlyClosure' && operation.kind === 'delete') throw apiError_('invalid_closure', 'Los cierres mensuales no se eliminan.');
   const record = operation.payload;
+  assertMutableMonth_(spreadsheet, entityType, record);
+  if (operation.kind !== 'create') {
+    const current = findRowObject_(spreadsheet.getSheetByName(entitySheet_(entityType)), 'id', operation.recordId);
+    if (current) assertMutableMonth_(spreadsheet, entityType, normalizeEntity_(entityType, current.value));
+  }
+  if (operation.kind === 'delete') return;
   if (operation.kind === 'create' && record.createdBy !== userId) throw apiError_('invalid_owner', 'El creador no coincide con la sesión.');
   if (entityType === 'transaction') validateTransaction_(spreadsheet, record, !operation.entityType || !Object.prototype.hasOwnProperty.call(record, 'accountId'));
   else if (entityType === 'account') validateAccount_(record);
@@ -257,12 +281,13 @@ function validateOperation_(spreadsheet, operation, userId, entityType) {
   else if (entityType === 'plannedItem') validatePlannedItem_(spreadsheet, record);
   else if (entityType === 'monthlyPlan') validateMonthlyPlan_(record);
   else if (entityType === 'goal') validateGoal_(record);
-  else validateGoalAllocation_(spreadsheet, record, operation.kind === 'update' ? operation.recordId : null);
+  else if (entityType === 'goalAllocation') validateGoalAllocation_(spreadsheet, record, operation.kind === 'update' ? operation.recordId : null);
+  else { validateMonthlyClosure_(record); validateClosureTransition_(spreadsheet, operation, record, userId); }
 }
 
 function validateOperationEnvelope_(operation, entityType) {
   if (!operation || typeof operation.operationId !== 'string' || !operation.operationId) throw apiError_('invalid_operation', 'Falta operationId.');
-  if (['transaction', 'account', 'category', 'recurringRule', 'budget', 'plannedItem', 'monthlyPlan', 'goal', 'goalAllocation'].indexOf(entityType) === -1) throw apiError_('invalid_operation', 'Entidad inválida.');
+  if (['transaction', 'account', 'category', 'recurringRule', 'budget', 'plannedItem', 'monthlyPlan', 'goal', 'goalAllocation', 'monthlyClosure'].indexOf(entityType) === -1) throw apiError_('invalid_operation', 'Entidad inválida.');
   if (['create', 'update', 'delete'].indexOf(operation.kind) === -1) throw apiError_('invalid_operation', 'Tipo de operación inválido.');
   if (operation.recordId !== (operation.payload && operation.payload.id)) throw apiError_('invalid_record', 'El identificador no coincide.');
 }
@@ -357,6 +382,56 @@ function validateMonthlyPlan_(record) {
       !Number.isSafeInteger(record.investmentAllocationCents) || record.investmentAllocationCents < 0) throw apiError_('invalid_amount', 'Distribución no válida.');
 }
 
+function validateMonthlyClosure_(record) {
+  if (!record || !/^\d{4}-(0[1-9]|1[0-2])$/.test(record.month) || ['closed', 'open'].indexOf(record.status) === -1) {
+    throw apiError_('invalid_closure', 'Cierre mensual no válido.');
+  }
+  if (!Number.isSafeInteger(record.revision) || record.revision < 1 || !record.closedAt || ALLOWED_USERS.indexOf(record.closedBy) === -1) {
+    throw apiError_('invalid_closure', 'Estado del cierre no válido.');
+  }
+  if (record.status === 'closed' && record.month > Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM')) {
+    throw apiError_('invalid_closure', 'No puedes cerrar un mes futuro.');
+  }
+  if (record.reopenedAt && (Number.isNaN(new Date(record.reopenedAt).getTime()) || ALLOWED_USERS.indexOf(record.reopenedBy) === -1)) {
+    throw apiError_('invalid_closure', 'Reapertura no válida.');
+  }
+  ['transactionCount', 'pendingIncomeCount', 'pendingExpenseCount'].forEach(function (name) {
+    if (!Number.isSafeInteger(record[name]) || record[name] < 0) throw apiError_('invalid_closure', 'Contadores del cierre no válidos.');
+  });
+  ['actualIncomeCents', 'actualExpenseCents', 'realSurplusCents', 'projectedSurplusCents', 'netWorthCents', 'liquidityCents',
+    'savingsCents', 'investmentCents', 'goalReservedCents'].forEach(function (name) {
+    if (!Number.isSafeInteger(record[name])) throw apiError_('invalid_amount', 'Importe del cierre no válido.');
+  });
+  if (record.actualIncomeCents < 0 || record.actualExpenseCents < 0 || record.goalReservedCents < 0 ||
+      record.realSurplusCents !== record.actualIncomeCents - record.actualExpenseCents) throw apiError_('invalid_closure', 'El cierre no cuadra.');
+}
+
+function validateClosureTransition_(spreadsheet, operation, record, userId) {
+  if ((record.status === 'closed' && record.closedBy !== userId) || (record.status === 'open' && record.reopenedBy !== userId)) {
+    throw apiError_('invalid_owner', 'El autor del cierre no coincide con la sesión.');
+  }
+  const found = findRowObject_(spreadsheet.getSheetByName('MonthlyClosures'), 'id', operation.recordId);
+  if (operation.kind === 'create') {
+    if (record.status !== 'closed' || record.revision !== 1) throw apiError_('invalid_closure', 'El primer cierre debe empezar en la revisión 1.');
+    return;
+  }
+  if (!found) return;
+  const current = normalizeMonthlyClosure_(found.value);
+  const reopening = current.status === 'closed' && record.status === 'open' && record.revision === current.revision && record.reopenedAt && record.reopenedBy;
+  const reclosing = current.status === 'open' && record.status === 'closed' && record.revision === current.revision + 1;
+  if (!reopening && !reclosing) throw apiError_('invalid_closure', 'La transición del cierre mensual no es válida.');
+}
+
+function assertMutableMonth_(spreadsheet, entityType, record) {
+  if (entityType === 'monthlyClosure') return;
+  const month = entityType === 'transaction' || entityType === 'plannedItem' ? String(record.date || '').slice(0, 7) :
+    entityType === 'budget' || entityType === 'monthlyPlan' ? String(record.month || '') : '';
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return;
+  const closure = readObjects_(spreadsheet.getSheetByName('MonthlyClosures'), SHEETS.MonthlyClosures).map(normalizeMonthlyClosure_)
+    .find(function (item) { return !item.deletedAt && item.month === month; });
+  if (closure && closure.status === 'closed') throw apiError_('month_closed', 'El mes está cerrado. Reábrelo antes de modificarlo.');
+}
+
 function validateGoal_(record) {
   if (!record || typeof record.name !== 'string' || !record.name.trim() || record.name.length > 80) throw apiError_('invalid_goal', 'Nombre de objetivo no válido.');
   if (!Number.isSafeInteger(record.targetAmountCents) || record.targetAmountCents <= 0) throw apiError_('invalid_amount', 'Importe objetivo no válido.');
@@ -420,7 +495,13 @@ function serverRecord_(entityType, payload, version, sequence, createdBy, delete
     investmentAllocationCents: payload.investmentAllocationCents });
   if (entityType === 'goal') return Object.assign(common, { name: payload.name.trim(), targetAmountCents: payload.targetAmountCents,
     targetDate: payload.targetDate || '', icon: payload.icon.trim(), note: payload.note.trim(), completedAt: payload.completedAt || '', archivedAt: payload.archivedAt || '' });
-  return Object.assign(common, { goalId: payload.goalId, amountCents: payload.amountCents, date: payload.date, note: payload.note.trim() });
+  if (entityType === 'goalAllocation') return Object.assign(common, { goalId: payload.goalId, amountCents: payload.amountCents, date: payload.date, note: payload.note.trim() });
+  return Object.assign(common, { month: payload.month, status: payload.status, revision: payload.revision, closedAt: payload.closedAt,
+    closedBy: payload.closedBy, reopenedAt: payload.reopenedAt || '', reopenedBy: payload.reopenedBy || '', transactionCount: payload.transactionCount,
+    pendingIncomeCount: payload.pendingIncomeCount, pendingExpenseCount: payload.pendingExpenseCount, actualIncomeCents: payload.actualIncomeCents,
+    actualExpenseCents: payload.actualExpenseCents, realSurplusCents: payload.realSurplusCents, projectedSurplusCents: payload.projectedSurplusCents,
+    netWorthCents: payload.netWorthCents, liquidityCents: payload.liquidityCents, savingsCents: payload.savingsCents,
+    investmentCents: payload.investmentCents, goalReservedCents: payload.goalReservedCents });
 }
 
 function initializeSheetHeaders_(sheet, headers) {
@@ -500,6 +581,7 @@ function findPlannedTransaction_(sheet, plannedItemId) {
 function isDeterministicPlanCreate_(entityType, payload, existing) {
   if (entityType === 'budget') return String(existing.month) === String(payload.month) && String(existing.categoryId) === String(payload.categoryId);
   if (entityType === 'monthlyPlan') return String(existing.month) === String(payload.month);
+  if (entityType === 'monthlyClosure') return normalizeMonthCell_(existing.month) === String(payload.month);
   if (entityType === 'plannedItem' && payload.source === 'recurring') {
     return String(existing.source) === 'recurring' && String(existing.recurringRuleId) === String(payload.recurringRuleId) &&
       normalizeDateCell_(existing.date) === String(payload.date);
@@ -583,6 +665,16 @@ function normalizeGoalAllocation_(row) {
     date: normalizeDateCell_(row.date), note: row.note ? String(row.note) : '' });
 }
 
+function normalizeMonthlyClosure_(row) {
+  return Object.assign(normalizeCommon_(row), { month: normalizeMonthCell_(row.month), status: String(row.status), revision: Number(row.revision),
+    closedAt: normalizeTimestampCell_(row.closedAt), closedBy: String(row.closedBy), reopenedAt: row.reopenedAt ? normalizeTimestampCell_(row.reopenedAt) : null,
+    reopenedBy: row.reopenedBy ? String(row.reopenedBy) : null, transactionCount: Number(row.transactionCount),
+    pendingIncomeCount: Number(row.pendingIncomeCount), pendingExpenseCount: Number(row.pendingExpenseCount), actualIncomeCents: Number(row.actualIncomeCents),
+    actualExpenseCents: Number(row.actualExpenseCents), realSurplusCents: Number(row.realSurplusCents), projectedSurplusCents: Number(row.projectedSurplusCents),
+    netWorthCents: Number(row.netWorthCents), liquidityCents: Number(row.liquidityCents), savingsCents: Number(row.savingsCents),
+    investmentCents: Number(row.investmentCents), goalReservedCents: Number(row.goalReservedCents) });
+}
+
 function normalizeCommon_(row) {
   return { id: String(row.id), createdAt: normalizeTimestampCell_(row.createdAt), updatedAt: normalizeTimestampCell_(row.updatedAt),
     deletedAt: row.deletedAt ? normalizeTimestampCell_(row.deletedAt) : null, createdBy: String(row.createdBy),
@@ -598,12 +690,13 @@ function normalizeEntity_(entityType, row) {
   if (entityType === 'plannedItem') return normalizePlannedItem_(row);
   if (entityType === 'monthlyPlan') return normalizeMonthlyPlan_(row);
   if (entityType === 'goal') return normalizeGoal_(row);
-  return normalizeGoalAllocation_(row);
+  if (entityType === 'goalAllocation') return normalizeGoalAllocation_(row);
+  return normalizeMonthlyClosure_(row);
 }
 function entitySheet_(entityType) {
   return entityType === 'transaction' ? 'Transactions' : entityType === 'account' ? 'Accounts' : entityType === 'category' ? 'Categories' :
     entityType === 'recurringRule' ? 'RecurringRules' : entityType === 'budget' ? 'Budgets' : entityType === 'plannedItem' ? 'PlannedItems' :
-      entityType === 'monthlyPlan' ? 'MonthlyPlans' : entityType === 'goal' ? 'Goals' : 'GoalAllocations';
+      entityType === 'monthlyPlan' ? 'MonthlyPlans' : entityType === 'goal' ? 'Goals' : entityType === 'goalAllocation' ? 'GoalAllocations' : 'MonthlyClosures';
 }
 function toBoolean_(value) { return value === true || String(value).toLowerCase() === 'true'; }
 

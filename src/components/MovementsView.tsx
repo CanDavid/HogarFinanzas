@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react'
 import { normalizeDateOnly, localDateOnly } from '../domain/dates'
 import { DEFAULT_MOVEMENT_FILTERS, filterMovements, groupMovements, type MovementFilters } from '../domain/movements'
 import { formatEuro } from '../domain/money'
-import type { Account, Category, RecurringRuleInput, Transaction, TransactionInput, TransactionKind } from '../domain/types'
+import { isMonthClosed } from '../domain/closures'
+import type { Account, Category, MonthlyClosure, RecurringRuleInput, Transaction, TransactionInput, TransactionKind } from '../domain/types'
 import { TransactionForm } from './TransactionForm'
 
-export function MovementsView({ transactions, accounts, categories, startAdding = false, initialKind, initialAccountId, onSave, onDelete }: {
-  transactions: Transaction[]; accounts: Account[]; categories: Category[]; startAdding?: boolean
+export function MovementsView({ transactions, accounts, categories, closures, startAdding = false, initialKind, initialAccountId, onSave, onDelete }: {
+  transactions: Transaction[]; accounts: Account[]; categories: Category[]; closures: MonthlyClosure[]; startAdding?: boolean
   initialKind?: TransactionKind; initialAccountId?: string
   onSave(transaction: Transaction | undefined, input: TransactionInput, recurrence?: RecurringRuleInput): Promise<void>; onDelete(transaction: Transaction): Promise<void>
 }) {
@@ -35,9 +36,9 @@ export function MovementsView({ transactions, accounts, categories, startAdding 
     {formOpen && <section className="card movement-editor"><div className="section-title"><h2>{editing ? 'Editar movimiento' : 'Añadir movimiento'}</h2><button className="close-button" onClick={closeForm} aria-label="Cerrar formulario">×</button></div>
       <TransactionForm key={editing?.id ?? `new-${draftKind ?? 'standard'}`} transaction={editing} initialKind={draftKind} initialAccountId={draftAccountId} accounts={accounts} categories={categories} onSave={save} onCancel={closeForm} /></section>}
     <section className="movements"><div className="section-title"><h2>Actividad</h2><span>{filtered.length}</span></div>
-      {groups.length === 0 ? <p className="empty">No hay movimientos que coincidan con estos filtros.</p> : groups.map((group) => <div className="movement-group" key={group.date}><h3>{formatGroupDate(group.date)}</h3><ul>{group.transactions.map((item) => <li key={item.id}>
-        <button className="movement-main" onClick={() => edit(item)}><span className={`kind-icon ${item.kind}`} aria-hidden="true">{kindIcon(item.kind)}</span><span><strong>{item.concept}{item.recurringRuleId && <span className="recurring-badge">Recurrente</span>}</strong><small>{movementContext(item, accountNames, categoryNames)} · {displayUser(item.createdBy)}</small>{item.note && <small className="movement-note">{item.note}</small>}</span><strong className={item.kind}>{movementAmount(item)}</strong></button>
-        <button className="delete" onClick={() => void onDelete(item)} aria-label={`Eliminar ${item.concept}`}>Eliminar</button></li>)}</ul></div>)}
+      {groups.length === 0 ? <p className="empty">No hay movimientos que coincidan con estos filtros.</p> : groups.map((group) => <div className="movement-group" key={group.date}><h3>{formatGroupDate(group.date)}</h3><ul>{group.transactions.map((item) => { const locked = isMonthClosed(item.date.slice(0, 7), closures); return <li key={item.id} className={locked ? 'locked' : ''}>
+        <button className="movement-main" onClick={() => edit(item)} disabled={locked} aria-label={locked ? `${item.concept}, mes cerrado` : undefined}><span className={`kind-icon ${item.kind}`} aria-hidden="true">{kindIcon(item.kind)}</span><span><strong>{item.concept}{item.recurringRuleId && <span className="recurring-badge">Recurrente</span>}{locked && <span className="closed-badge">Cerrado</span>}</strong><small>{movementContext(item, accountNames, categoryNames)} · {displayUser(item.createdBy)}</small>{item.note && <small className="movement-note">{item.note}</small>}</span><strong className={item.kind}>{movementAmount(item)}</strong></button>
+        {!locked && <button className="delete" onClick={() => void onDelete(item)} aria-label={`Eliminar ${item.concept}`}>Eliminar</button>}</li> })}</ul></div>)}
     </section>
   </div>
 }
