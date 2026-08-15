@@ -29,7 +29,7 @@ describe('monthly plan domain', () => {
     const budget = { ...common, id: crypto.randomUUID(), month: '2026-08', categoryId: 'food', amountCents: 1_000 } satisfies Budget
     const result = buildMonthlyPlan('2026-08', [], [item], [transaction('expense', 1_500, { categoryId: 'food' })], [budget])
     expect(result.items[0].status).toBe('omitted')
-    expect(result.budgets[0]).toMatchObject({ spentCents: 1_500, remainingCents: 0, percentage: 150 })
+    expect(result.budgets[0]).toMatchObject({ spentCents: 1_500, remainingCents: 0, overspentCents: 500, percentage: 150 })
     expect(result.summary.pendingFixedExpenseCents).toBe(0)
     expect(result.summary.projectedSurplusCents).toBe(-1_500)
   })

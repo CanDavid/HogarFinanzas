@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { localDateOnly } from '../domain/dates'
-import type { Account, Budget, Category, PlannedItem, RecurringRule } from '../domain/types'
+import type { Account, Budget, Category, PlannedItem, RecurringRule, Transaction } from '../domain/types'
 import { PlanView } from './PlanView'
 
 const today = localDateOnly(); const month = today.slice(0, 7)
@@ -44,5 +44,14 @@ describe('PlanView', () => {
     fireEvent.change(screen.getByLabelText('Inversión'), { target: { value: '25,00' } })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar distribución' }))
     await vi.waitFor(() => expect(callbacks.onSetDistribution).toHaveBeenCalledWith(month, 5_000, 2_500))
+  })
+
+  it('states the exceeded amount without relying only on the progress color', () => {
+    const expense: Transaction = { ...sync, id: 'expense', kind: 'expense', amountCents: 121_000, concept: 'Compra grande', note: '',
+      date: `${month}-15`, accountId: account.id, categoryId: category.id, sourceAccountId: null, destinationAccountId: null }
+    render(<PlanView {...props()} transactions={[expense]} budgets={[{ ...budget, amountCents: 100_000 }]} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Presupuestos' }))
+    expect(screen.getByText(/Excedido en 210,00/)).toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: /Presupuesto excedido en 210,00.*121% consumido/ })).toHaveValue(100)
   })
 })

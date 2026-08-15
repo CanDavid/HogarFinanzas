@@ -24,6 +24,7 @@ export interface BudgetProgress {
   budget: Budget
   spentCents: number
   remainingCents: number
+  overspentCents: number
   percentage: number
 }
 
@@ -92,7 +93,8 @@ export function buildMonthlyPlan(
   const budgetProgress = currentBudgets.map((budget) => {
     const spentCents = sum(variableExpenses.filter((item) => item.categoryId === budget.categoryId).map((item) => item.amountCents))
     const remainingCents = Math.max(budget.amountCents - spentCents, 0)
-    return { budget, spentCents, remainingCents, percentage: budget.amountCents > 0 ? Math.round(spentCents / budget.amountCents * 100) : 0 }
+    const overspentCents = Math.max(spentCents - budget.amountCents, 0)
+    return { budget, spentCents, remainingCents, overspentCents, percentage: budget.amountCents > 0 ? Math.round(spentCents / budget.amountCents * 100) : 0 }
   })
   const pending = items.filter((item) => item.status === 'pending')
   const planned = items.filter((item) => item.status !== 'omitted')

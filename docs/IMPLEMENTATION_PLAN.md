@@ -263,7 +263,13 @@ Estado: **implementada y desplegada; pendiente de validación en ambos iPhone �
 - No requiere migración de Sheets. Apps Script fue promovido a la versión inmutable 8 (`version5.0.2-phase5`); health check HTTP 200 y `5.0.2-phase5`.
 - Validación local: lint, typecheck y build verdes; 16 archivos y 81 tests verdes.
 - Publicación: commit `5d159c9`, `PWA CI #19` y `Deploy GitHub Pages #19` verdes.
-- Pendiente exclusivamente de checkpoint: actualizar ambos iPhone y repetir el bloque 0 de `IPHONE_PHASE5.md`.
+- Validación real: el usuario confirmó que el error de creación/desaparición quedó solucionado tras actualizar ambos iPhone.
+
+### Claridad al exceder un presupuesto — 2026-08-15
+
+- La primera presentación mostraba `0 disponible · 121% consumido`, cálculo correcto pero sin cuantificar el exceso salvo mediante resta mental y color.
+- Hotfix PWA `5.0.3`: muestra `Excedido en 210,00 € · 121% consumido`, mantiene la barra completa y aporta un nombre accesible equivalente al lector de pantalla.
+- Pendiente: publicar y comprobar esta última presentación en iPhone; el resto de la matriz de Fase 5 debe confirmarse antes de iniciar Fase 6.
 
 ## Fases siguientes — no iniciadas
 
