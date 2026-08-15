@@ -2,6 +2,16 @@
 
 Prerrequisitos: `migratePhase5` ejecutada, Web App `5.0.0-phase5` desplegada y PWA actualizada en ambos iPhone. Sincroniza ambos antes de empezar. Usa datos de prueba identificables y no compartas aquí la clave doméstica ni tokens.
 
+## 0. Regresión del hotfix 5.0.1
+
+1. Abre la PWA con conexión en ambos iPhone, acepta la actualización y ciérrala/ábrela una vez si no aparece el aviso.
+2. En David, crea un presupuesto y deja que termine la sincronización automática sin pulsar varias veces el indicador.
+3. Confirma que el presupuesto continúa visible en David y que no aparece un error en la primera sincronización.
+4. Sincroniza Esther y confirma que recibe el mismo presupuesto.
+5. Edita el importe desde Esther, sincroniza ambos y comprueba que el último valor permanece en los dos.
+
+Resultado esperado: ningún presupuesto desaparece, no hay sincronizaciones paralelas ni cambios rechazados. Los cambios que hubieran quedado pendientes antes del hotfix deben recuperarse automáticamente.
+
 ## 1. Actualización y plan compartido
 
 1. Abre la PWA con conexión en ambos iPhone y acepta la actualización si aparece.

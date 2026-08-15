@@ -310,14 +310,28 @@ export class LocalFinanceRepository implements SyncRepository {
         else await transaction.objectStore('monthlyPlans').put(result.record as MonthlyPlan)
       }
     }
+    const remainingOperations = (await transaction.objectStore('outbox').getAll()).sort((left, right) => left.localSequence - right.localSequence)
+    for (const operation of remainingOperations) {
+      const entityType = operation.entityType ?? 'transaction'; const payload = operation.payload
+      if (entityType === 'transaction') await transaction.objectStore('transactions').put(normalizeTransaction(payload as Transaction))
+      else if (entityType === 'account') await transaction.objectStore('accounts').put(payload as Account)
+      else if (entityType === 'category') await transaction.objectStore('categories').put(payload as Category)
+      else if (entityType === 'recurringRule') await transaction.objectStore('recurringRules').put(payload as RecurringRule)
+      else if (entityType === 'budget') await transaction.objectStore('budgets').put(payload as Budget)
+      else if (entityType === 'plannedItem') await transaction.objectStore('plannedItems').put(payload as PlannedItem)
+      else await transaction.objectStore('monthlyPlans').put(payload as MonthlyPlan)
+    }
     await transaction.done
   }
 
   async mergeServerChanges(changes: SyncChange[]): Promise<void> {
     const database = await getDatabase()
-    const transaction = database.transaction(['transactions', 'accounts', 'categories', 'recurringRules', 'budgets', 'plannedItems', 'monthlyPlans'], 'readwrite')
+    const transaction = database.transaction(['transactions', 'accounts', 'categories', 'recurringRules', 'budgets', 'plannedItems', 'monthlyPlans', 'outbox'], 'readwrite')
+    const locallyPending = new Set((await transaction.objectStore('outbox').getAll())
+      .map((operation) => `${operation.entityType ?? 'transaction'}:${operation.recordId}`))
     for (const incoming of changes) {
       const change = 'record' in incoming ? incoming : { entityType: 'transaction' as const, record: incoming as unknown as Transaction }
+      if (locallyPending.has(`${change.entityType}:${change.record.id}`)) continue
       const remote = normalizeEntity(change.entityType, change.record)
       if (change.entityType === 'transaction') {
         const record = remote as Transaction; const local = await transaction.objectStore('transactions').get(record.id)

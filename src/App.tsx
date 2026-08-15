@@ -11,10 +11,12 @@ import { LocalFinanceRepository } from './data/localFinanceRepository'
 import { calculatePortfolio } from './domain/finance'
 import type { Account, Budget, Category, MonthlyPlan, PlannedItem, RecurringRule, RecurringRuleInput, Session, Transaction, TransactionInput, TransactionKind, UserId } from './domain/types'
 import { AppsScriptClient } from './services/appsScriptClient'
+import { SingleFlightRunner } from './services/singleFlightRunner'
 import { SyncEngine } from './services/syncEngine'
 import './styles.css'
 
 const repository = new LocalFinanceRepository()
+const syncRunner = new SingleFlightRunner()
 type SyncState = 'idle' | 'syncing' | 'ok' | 'error'
 type Page = MainTab | 'settings' | 'accounts' | 'categories' | 'recurring'
 interface MovementIntent { key: number; mode: 'list' | 'add'; initialKind?: TransactionKind; initialAccountId?: string }
@@ -46,14 +48,14 @@ export default function App() {
     if (failed.length > 0) { setSyncState('error'); setSyncMessage(`${failed.length} cambio${failed.length === 1 ? '' : 's'} necesita revisión`) }
   }, [])
 
-  const synchronize = useCallback(async () => {
+  const synchronize = useCallback(() => syncRunner.run(async () => {
     if (!navigator.onLine) { setSyncState('idle'); setSyncMessage('Sin conexión · cambios guardados'); return }
     setSyncState('syncing'); setSyncMessage('Sincronizando…')
     try {
       const result = await new SyncEngine(repository).run(); await refreshLocal(); setSyncState(result.failed ? 'error' : 'ok')
       setSyncMessage(result.failed ? `${result.failed} cambios rechazados` : result.pushed || result.pulled ? `${result.pushed} enviados · ${result.pulled} recibidos` : 'Todo sincronizado')
     } catch (cause) { setSyncState('error'); setSyncMessage(cause instanceof Error ? cause.message : 'No se pudo sincronizar') }
-  }, [refreshLocal])
+  }), [refreshLocal])
 
   useEffect(() => { void Promise.all([repository.getSession(), refreshLocal()]).then(([storedSession]) => {
     setSession(storedSession); setReady(true); if (storedSession && navigator.onLine) void synchronize()

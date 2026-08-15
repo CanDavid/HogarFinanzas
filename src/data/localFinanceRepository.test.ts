@@ -106,6 +106,26 @@ describe('LocalFinanceRepository', () => {
     expect((await repository.pendingOperations()).map((item) => item.kind)).toEqual(['create', 'update', 'create', 'update'])
   })
 
+  it('does not let an older pull erase a budget that is still pending', async () => {
+    const repository = new LocalFinanceRepository()
+    const remote = await repository.setBudget('2026-08', 'food', 10_000, 'david')
+    const [create] = await repository.pendingOperations()
+    await repository.applyOperationResults([{ operationId: create.operationId, ok: true, entityType: 'budget',
+      record: { ...remote, version: 1, changeSequence: 1 } }])
+    await repository.setBudget('2026-08', 'food', 25_000, 'david')
+    const [update] = await repository.pendingOperations()
+    await repository.applyOperationResults([{ operationId: update.operationId, ok: false,
+      error: { code: 'transport_retry', message: 'Reintentar', permanent: false } }])
+    await repository.setBudget('2026-08', 'food', 30_000, 'david')
+    const newest = (await repository.pendingOperations()).at(-1)!
+    await repository.applyOperationResults([{ operationId: newest.operationId, ok: false,
+      error: { code: 'transport_retry', message: 'Reintentar', permanent: false } }])
+    await repository.mergeServerChanges([{ entityType: 'budget', record: { ...remote, amountCents: 10_000, version: 1, changeSequence: 1 } }])
+
+    expect((await repository.listBudgets())[0].amountCents).toBe(30_000)
+    expect(await repository.pendingOperations()).toHaveLength(2)
+  })
+
   it('persists manual planned items and materializes them idempotently', async () => {
     const repository = new LocalFinanceRepository()
     const item = await repository.createPlannedItem({ kind: 'expense', amountCents: 4_250, concept: 'Seguro puntual', note: '',

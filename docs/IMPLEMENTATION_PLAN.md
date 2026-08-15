@@ -245,6 +245,14 @@ Estado: **implementada y desplegada; pendiente de validación en ambos iPhone �
 - Revisión del diff completa y escaneo del árbol e historial sin patrones de claves API, tokens de GitHub ni claves privadas.
 - Pendiente exclusivamente de checkpoint: completar `IPHONE_PHASE5.md` en los dispositivos de David y Esther.
 
+### Incidente de presupuestos y sincronización solapada — 2026-08-15
+
+- Observación real: al sincronizar, el presupuesto recién guardado podía desaparecer en el iPhone creador; la primera sincronización posterior a una edición mostraba a veces un error.
+- Causa: podían ejecutarse dos sincronizaciones a la vez. Si una edición conservaba la misma versión remota mientras seguía en la cola, una respuesta anterior podía sobrescribirla localmente; un presupuesto remoto con importe cero desaparecía entonces del plan.
+- Hotfix PWA `5.0.1`: las solicitudes se serializan y una petición recibida durante otra provoca una última pasada; los registros con operaciones pendientes quedan protegidos frente a pulls antiguos y su payload local se restaura hasta recibir confirmación del servidor.
+- Cobertura: prueba determinista de exclusión mutua y segunda pasada, más regresión IndexedDB que demuestra que un pull antiguo no puede borrar un presupuesto pendiente.
+- Pendiente: publicar, verificar CI/Pages y repetir el alta/edición de presupuesto en ambos iPhone antes de continuar la matriz.
+
 ## Fases siguientes — no iniciadas
 
 - **Fase 6:** objetivos virtuales y patrimonio.
