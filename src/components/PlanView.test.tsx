@@ -40,6 +40,8 @@ describe('PlanView', () => {
     await vi.waitFor(() => expect(callbacks.onSetBudget).toHaveBeenCalledWith(month, category.id, 25_050))
 
     fireEvent.click(screen.getByRole('button', { name: 'Distribución' }))
+    expect(screen.getByText('Los objetivos se gestionan desde la pestaña Objetivos. Esta distribución mensual no crea aportaciones ni mueve dinero.')).toBeInTheDocument()
+    expect(screen.queryByText(/se añadirá en Fase 6/)).not.toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Ahorro'), { target: { value: '50,00' } })
     fireEvent.change(screen.getByLabelText('Inversión'), { target: { value: '25,00' } })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar distribución' }))

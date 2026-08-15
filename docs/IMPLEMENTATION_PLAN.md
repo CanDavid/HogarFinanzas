@@ -321,6 +321,12 @@ Estado: **implementada y desplegada; pendiente de validación en ambos iPhone �
 - Apps Script promovido a la versión inmutable 9, descripción `version6.0.0-phase6`, conservando la misma URL pública. Health check real: HTTP 200 y `6.0.0-phase6`.
 - Commit `a84aac9`: `PWA CI #25` y `Deploy GitHub Pages #25` verdes. La página y el bundle responden HTTP 200 y el artefacto publicado contiene Objetivos, Patrimonio y la retirada explícita. La fase no se marcará completada hasta que David y Esther confirmen `IPHONE_PHASE6.md`.
 
+### Texto obsoleto en la distribución mensual — 2026-08-16
+
+- Observación real: Plan → Distribución todavía indicaba que la asignación a objetivos se añadiría en Fase 6, aunque Objetivos ya estaba operativo.
+- Hotfix PWA `6.0.1`: el texto dirige a la pestaña Objetivos y aclara que la distribución mensual no crea aportaciones ni mueve dinero. No enlaza ambos modelos ni anticipa funcionalidad de Fase 7.
+- Cobertura: prueba de interfaz que exige el nuevo mensaje y evita que vuelva a aparecer la referencia futura a Fase 6.
+
 ## Fases siguientes — no iniciadas
 
 - **Fase 7:** cierres, snapshots, reapertura y recierre.
