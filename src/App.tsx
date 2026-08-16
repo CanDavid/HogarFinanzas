@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { AccountManager } from './components/AccountManager'
 import { AnalysisView } from './components/AnalysisView'
+import { BackupManager } from './components/BackupManager'
 import { BottomNavigation, type MainTab } from './components/BottomNavigation'
 import { CategoryManager } from './components/CategoryManager'
 import { GoalsView } from './components/GoalsView'
@@ -21,7 +22,7 @@ import './styles.css'
 const repository = new LocalFinanceRepository()
 const syncRunner = new SingleFlightRunner()
 type SyncState = 'idle' | 'syncing' | 'ok' | 'error'
-type Page = MainTab | 'settings' | 'accounts' | 'categories' | 'recurring' | 'portfolio'
+type Page = MainTab | 'settings' | 'accounts' | 'categories' | 'recurring' | 'portfolio' | 'backup'
 interface MovementIntent { key: number; mode: 'list' | 'add'; initialKind?: TransactionKind; initialAccountId?: string }
 
 export default function App() {
@@ -41,17 +42,18 @@ export default function App() {
   const [syncState, setSyncState] = useState<SyncState>('idle')
   const [syncMessage, setSyncMessage] = useState('Solo en este dispositivo')
   const [pendingCount, setPendingCount] = useState(0)
+  const [hasLocalData, setHasLocalData] = useState(true)
   const [ready, setReady] = useState(false)
   const [online, setOnline] = useState(navigator.onLine)
 
   const refreshLocal = useCallback(async () => {
-    const [items, accountItems, categoryItems, ruleItems, budgetItems, planItems, monthlyItems, goalItems, allocationItems, closureItems, pending, failed] = await Promise.all([
+    const [items, accountItems, categoryItems, ruleItems, budgetItems, planItems, monthlyItems, goalItems, allocationItems, closureItems, pending, failed, localData] = await Promise.all([
       repository.listTransactions(), repository.listAccounts(), repository.listCategories(), repository.listRecurringRules(),
       repository.listBudgets(), repository.listPlannedItems(), repository.listMonthlyPlans(), repository.listGoals(), repository.listGoalAllocations(),
-      repository.listMonthlyClosures(), repository.pendingOperations(), repository.failedOperations(),
+      repository.listMonthlyClosures(), repository.pendingOperations(), repository.failedOperations(), repository.hasLocalData(),
     ])
     setTransactions(items); setAccounts(accountItems); setCategories(categoryItems); setRecurringRules(ruleItems)
-    setBudgets(budgetItems); setPlannedItems(planItems); setMonthlyPlans(monthlyItems); setGoals(goalItems); setGoalAllocations(allocationItems); setMonthlyClosures(closureItems); setPendingCount(pending.length)
+    setBudgets(budgetItems); setPlannedItems(planItems); setMonthlyPlans(monthlyItems); setGoals(goalItems); setGoalAllocations(allocationItems); setMonthlyClosures(closureItems); setPendingCount(pending.length); setHasLocalData(localData)
     if (failed.length > 0) { setSyncState('error'); setSyncMessage(`${failed.length} cambio${failed.length === 1 ? '' : 's'} necesita revisión`) }
   }, [])
 
@@ -88,10 +90,10 @@ export default function App() {
     setMovementIntent((current) => ({ key: current.key + 1, mode, ...options })); setPage('movements')
   }
   return <div className="app-shell">
-    <header className="topbar">{isMainTab(page) ? <div><p className="eyebrow">Casa compartida</p><h1>{pageTitle(page)}</h1></div> : <div className="secondary-heading"><button className="back-button" onClick={() => setPage(page === 'accounts' || page === 'categories' || page === 'recurring' ? 'settings' : 'home')} aria-label="Volver">‹</button><div><p className="eyebrow">{page === 'portfolio' ? 'Inicio' : 'Configuración'}</p><h1>{pageTitle(page)}</h1></div></div>}
+    <header className="topbar">{isMainTab(page) ? <div><p className="eyebrow">Casa compartida</p><h1>{pageTitle(page)}</h1></div> : <div className="secondary-heading"><button className="back-button" onClick={() => setPage(page === 'accounts' || page === 'categories' || page === 'recurring' || page === 'backup' ? 'settings' : 'home')} aria-label="Volver">‹</button><div><p className="eyebrow">{page === 'portfolio' ? 'Inicio' : 'Configuración'}</p><h1>{pageTitle(page)}</h1></div></div>}
       <div className="topbar-actions"><button className="settings-button" onClick={() => setPage('settings')} aria-label="Abrir configuración">⚙</button><button className="avatar" onClick={logout} aria-label={`Cerrar sesión de ${session.userId}`}>{session.userId[0].toUpperCase()}</button></div></header>
     <main>
-      <button className={`sync-banner ${syncState}`} onClick={() => void synchronize()} disabled={syncState === 'syncing'}><span aria-hidden="true">{online ? '●' : '○'}</span><span>{syncMessage}{pendingCount ? ` · ${pendingCount} pendientes` : ''}</span><span aria-hidden="true">↻</span></button>
+      <button className={`sync-banner ${syncState}`} onClick={() => void synchronize()} disabled={syncState === 'syncing'} role="status" aria-live="polite"><span aria-hidden="true">{online ? '●' : '○'}</span><span>{syncMessage}{pendingCount ? ` · ${pendingCount} pendientes` : ''}</span><span aria-hidden="true">↻</span></button>
       {page === 'home' && <HomeView transactions={transactions} accounts={accounts} categories={categories} goals={goals} allocations={goalAllocations} closures={monthlyClosures} onAddMovement={() => openMovements('add')} onOpenMovements={() => openMovements('list')} onOpenAccounts={() => setPage('accounts')} onOpenCategories={() => setPage('categories')} onOpenPortfolio={() => setPage('portfolio')} onOpenGoals={() => setPage('goals')} />}
       {page === 'movements' && <MovementsView key={movementIntent.key} transactions={transactions} accounts={accounts} categories={categories} closures={monthlyClosures} startAdding={movementIntent.mode === 'add'} initialKind={movementIntent.initialKind} initialAccountId={movementIntent.initialAccountId} onSave={save} onDelete={remove} />}
       {page === 'plan' && <PlanView transactions={transactions} rules={recurringRules} plannedItems={plannedItems} budgets={budgets} monthlyPlans={monthlyPlans} accounts={accounts} categories={categories}
@@ -132,8 +134,12 @@ export default function App() {
         onRestore={(id) => afterLocalChange(() => repository.restoreGoal(id))}
         onAllocate={(goalId, input) => afterLocalChange(() => repository.createGoalAllocation(goalId, input, session.userId))} />}
       {page === 'analysis' && <AnalysisView transactions={transactions} budgets={budgets} categories={categories} closures={monthlyClosures} goals={goals} allocations={goalAllocations} />}
-      {page === 'settings' && <ConfigurationHome session={session} pendingCount={pendingCount} onAccounts={() => setPage('accounts')} onCategories={() => setPage('categories')} onRecurring={() => setPage('recurring')} onSync={() => void synchronize()} onLogout={() => void logout()} />}
+      {page === 'settings' && <ConfigurationHome session={session} pendingCount={pendingCount} onAccounts={() => setPage('accounts')} onCategories={() => setPage('categories')} onRecurring={() => setPage('recurring')} onBackup={() => setPage('backup')} onSync={() => void synchronize()} onLogout={() => void logout()} />}
       {page === 'portfolio' && <PortfolioView accounts={accounts} transactions={transactions} goals={goals} allocations={goalAllocations} onManageAccounts={() => setPage('accounts')} />}
+      {page === 'backup' && <BackupManager userId={session.userId} hasLocalData={hasLocalData} accounts={accounts} categories={categories} transactions={transactions}
+        recurringRules={recurringRules} budgets={budgets} plannedItems={plannedItems} monthlyPlans={monthlyPlans} goals={goals}
+        goalAllocations={goalAllocations} monthlyClosures={monthlyClosures}
+        onImport={(payload) => afterLocalChange(() => repository.importBackup(payload, session.userId))} />}
       {page === 'accounts' && <AccountManager accounts={accounts} balances={portfolio.balances}
         onCreate={(input) => afterLocalChange(() => repository.createAccount(input, session.userId))}
         onUpdate={(id, input) => afterLocalChange(() => repository.updateAccount(id, input))}
@@ -154,10 +160,10 @@ export default function App() {
   </div>
 }
 
-function ConfigurationHome({ session, pendingCount, onAccounts, onCategories, onRecurring, onSync, onLogout }: {
-  session: Session; pendingCount: number; onAccounts(): void; onCategories(): void; onRecurring(): void; onSync(): void; onLogout(): void
+function ConfigurationHome({ session, pendingCount, onAccounts, onCategories, onRecurring, onBackup, onSync, onLogout }: {
+  session: Session; pendingCount: number; onAccounts(): void; onCategories(): void; onRecurring(): void; onBackup(): void; onSync(): void; onLogout(): void
 }) {
-  return <section className="settings-home"><div className="settings-links"><button className="card" onClick={onAccounts}><strong>Cuentas</strong><span>Crear, editar, archivar o reactivar</span></button><button className="card" onClick={onCategories}><strong>Categorías</strong><span>Organizar ingresos y gastos</span></button><button className="card" onClick={onRecurring}><strong>Recurrentes</strong><span>Programar y registrar próximas ocurrencias</span></button></div>
+  return <section className="settings-home"><div className="settings-links"><button className="card" onClick={onAccounts}><strong>Cuentas</strong><span>Crear, editar, archivar o reactivar</span></button><button className="card" onClick={onCategories}><strong>Categorías</strong><span>Organizar ingresos y gastos</span></button><button className="card" onClick={onRecurring}><strong>Recurrentes</strong><span>Programar y registrar próximas ocurrencias</span></button><button className="card" onClick={onBackup}><strong>Copia de seguridad</strong><span>Exportar o restaurar todos los datos</span></button></div>
     <div className="card session-card"><h2>Datos y sincronización</h2><p>Sesión iniciada como <strong>{session.userId === 'david' ? 'David' : 'Esther'}</strong>.</p><p>{pendingCount ? `${pendingCount} cambios pendientes.` : 'No hay cambios pendientes.'}</p><div className="form-actions"><button className="secondary" onClick={onLogout}>Cerrar sesión</button><button onClick={onSync}>Sincronizar ahora</button></div></div></section>
 }
 
@@ -174,5 +180,5 @@ function Login({ onAuthenticated }: { onAuthenticated(session: Session): void })
 }
 
 function isMainTab(page: Page): page is MainTab { return ['home', 'movements', 'plan', 'goals', 'analysis'].includes(page) }
-function pageTitle(page: Page): string { return page === 'home' ? 'Inicio' : page === 'movements' ? 'Movimientos' : page === 'plan' ? 'Plan' : page === 'goals' ? 'Objetivos' : page === 'analysis' ? 'Análisis' : page === 'accounts' ? 'Cuentas' : page === 'categories' ? 'Categorías' : page === 'recurring' ? 'Recurrentes' : page === 'portfolio' ? 'Patrimonio' : 'Ajustes' }
+function pageTitle(page: Page): string { return page === 'home' ? 'Inicio' : page === 'movements' ? 'Movimientos' : page === 'plan' ? 'Plan' : page === 'goals' ? 'Objetivos' : page === 'analysis' ? 'Análisis' : page === 'accounts' ? 'Cuentas' : page === 'categories' ? 'Categorías' : page === 'recurring' ? 'Recurrentes' : page === 'portfolio' ? 'Patrimonio' : page === 'backup' ? 'Copia de seguridad' : 'Ajustes' }
 function addMonth(month: string, offset: number): string { const [year, value] = month.split('-').map(Number); const date = new Date(Date.UTC(year, value - 1 + offset, 1)); return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}` }

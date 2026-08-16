@@ -371,7 +371,7 @@ Estado: **completada — 2026-08-16**.
 
 ## Fase 8 — Análisis y tendencias accesibles
 
-Estado: **implementada y desplegada; pendiente de validación en ambos iPhone — 2026-08-16**.
+Estado: **completada — 2026-08-16**.
 
 ### Alcance
 
@@ -405,11 +405,41 @@ Estado: **implementada y desplegada; pendiente de validación en ambos iPhone �
 - Commit `2c48084`: `PWA CI #30` y `Deploy GitHub Pages #30` verdes. La página pública responde HTTP 200 y el bundle activo contiene la pantalla y textos de Fase 8.
 - `git diff --check` sin incidencias. El cambio completo y todo el historial no contienen patrones de claves API, tokens de GitHub ni claves privadas.
 - No hay migración ni despliegue de Apps Script: el Web App continúa en `7.0.0-phase7` porque Fase 8 solo agrega localmente entidades existentes.
-- Pendiente exclusivamente de checkpoint: completar `IPHONE_PHASE8.md` en los dispositivos de David y Esther.
+- Validación externa completada: el usuario confirmó el 2026-08-16 que toda la matriz de `IPHONE_PHASE8.md` funciona correctamente en los dos iPhone y autorizó avanzar a Fase 9.
 
-## Fases siguientes — no iniciadas
+## Fase 9 — Robustez, rendimiento, accesibilidad, exportación/importación y copias
 
-- **Fase 9:** robustez, rendimiento, accesibilidad, exportación/importación y copias.
+Estado: **en desarrollo — 2026-08-16**.
+
+### Alcance
+
+- Corrección de un bloqueo real de sincronización: el servidor rechaza lotes de más de 100 operaciones y el cliente no troceaba el envío, dejando el outbox atascado para siempre si se superaba ese límite.
+- Exportar una copia local en JSON desde Ajustes con todas las entidades del hogar.
+- Restaurar esa copia, solo disponible en un dispositivo sin datos locales todavía (recuperación ante desastre), con reconstrucción correcta de cuentas/categorías archivadas, objetivos completados/archivados y cierres mensuales.
+- Mejoras de rendimiento con evidencia real: agregación por mes en Análisis y una comparación más barata en la lectura de movimientos.
+- Mejoras de accesibilidad con evidencia real: foco visible en botones, objetivos táctiles, `aria-live` en el estado de sincronización, gestión de foco al abrir formularios, cobertura de test que faltaba y smoke tests automáticos con `jest-axe`.
+
+### Deliberadamente fuera
+
+- Copia automática en Google Drive gestionada por Apps Script.
+- Restaurar una copia sustituyendo datos ya sincronizados.
+- Importación de movimientos bancarios/CSV.
+- Auditoría de accesibilidad exhaustiva más allá de los hallazgos concretos de esta fase.
+
+### Criterio de salida
+
+- Lint, typecheck, tests, build, CI y Pages verdes; diff e historial sin secretos.
+- En ambos iPhone: exportar/restaurar copia, sincronización sin bloqueo con más de 100 operaciones pendientes, accesibilidad y rendimiento validados mediante `IPHONE_PHASE9.md`.
+- La fase permanecerá pendiente hasta recibir el resultado real de esa guía.
+
+### Validación automatizada
+
+- `npm run lint`, `npm run typecheck` y `npm run build`: verdes, sin warnings; app shell y service worker generados con 7 recursos precacheados (sin cambios respecto a Fase 8: la copia de seguridad es cálculo/IO local, no añade activos).
+- `npm test`: 26 archivos y 141 tests verdes (fase anterior: 22 archivos, 116 tests). Cobertura nueva: troceo de sincronización en lotes de 100 con progreso duradero por lote; serialización/validación de la copia de seguridad (`backup.ts`); orden de dependencias, reatribución de autoría y reparación de estado archivado/completado/cerrado al restaurar (`localFinanceRepository.ts`); componente `BackupManager` (exportar, ocultar restauración con datos locales, confirmación explícita, fichero inválido); agrupación por mes en Análisis; primeros tests de `MovementsView` (no existían); tres smoke tests de accesibilidad automática con `jest-axe` (Análisis, Movimientos, Copia de seguridad) sin violaciones críticas.
+- Revisión manual en navegador a 390 × 844 px, modo oscuro: sin desplazamiento horizontal ni errores de consola en el arranque. La revisión completa del flujo de restauración con datos reales corresponde a `IPHONE_PHASE9.md`, porque requiere una sesión real contra el Web App.
+- `git diff --check` sin incidencias. El diff completo y el historial no contienen patrones de claves API, tokens de GitHub, contraseñas ni claves privadas.
+- No hay migración ni nuevo despliegue de Apps Script: el Web App continúa en `7.0.0-phase7`. La corrección de troceo de sincronización y la copia de seguridad son enteramente del lado cliente.
+- Pendiente exclusivamente de checkpoint: completar `IPHONE_PHASE9.md` en los dispositivos de David y Esther.
 
 ## Registro de decisiones
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { normalizeDateOnly, localDateOnly } from '../domain/dates'
 import { DEFAULT_MOVEMENT_FILTERS, filterMovements, groupMovements, type MovementFilters } from '../domain/movements'
 import { formatEuro } from '../domain/money'
@@ -22,6 +22,8 @@ export function MovementsView({ transactions, accounts, categories, closures, st
   const accountNames = useMemo(() => new Map(accounts.map((item) => [item.id, item.name])), [accounts])
   const categoryNames = useMemo(() => new Map(categories.map((item) => [item.id, `${item.icon} ${item.name}`])), [categories])
   const formOpen = adding || Boolean(editing)
+  const formHeadingRef = useRef<HTMLHeadingElement>(null)
+  useEffect(() => { if (formOpen) formHeadingRef.current?.focus() }, [formOpen])
 
   async function save(input: TransactionInput, recurrence?: RecurringRuleInput) { await onSave(editing, input, recurrence); setEditing(undefined); setAdding(false) }
   function edit(transaction: Transaction) { setAdding(false); setEditing(transaction); window.scrollTo({ top: 0, behavior: 'smooth' }) }
@@ -33,7 +35,7 @@ export function MovementsView({ transactions, accounts, categories, closures, st
       <button className="filter-button" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((value) => !value)}>Filtros</button>
       <button className="add-button" onClick={() => { setEditing(undefined); setDraftKind(undefined); setDraftAccountId(undefined); setAdding(true) }} aria-label="Añadir movimiento">＋</button></div>
     {filtersOpen && <MovementFilterPanel filters={filters} accounts={accounts} categories={categories} onChange={updateFilter} onClear={() => setFilters(DEFAULT_MOVEMENT_FILTERS)} />}
-    {formOpen && <section className="card movement-editor"><div className="section-title"><h2>{editing ? 'Editar movimiento' : 'Añadir movimiento'}</h2><button className="close-button" onClick={closeForm} aria-label="Cerrar formulario">×</button></div>
+    {formOpen && <section className="card movement-editor"><div className="section-title"><h2 ref={formHeadingRef} tabIndex={-1}>{editing ? 'Editar movimiento' : 'Añadir movimiento'}</h2><button className="close-button" onClick={closeForm} aria-label="Cerrar formulario">×</button></div>
       <TransactionForm key={editing?.id ?? `new-${draftKind ?? 'standard'}`} transaction={editing} initialKind={draftKind} initialAccountId={draftAccountId} accounts={accounts} categories={categories} onSave={save} onCancel={closeForm} /></section>}
     <section className="movements"><div className="section-title"><h2>Actividad</h2><span>{filtered.length}</span></div>
       {groups.length === 0 ? <p className="empty">No hay movimientos que coincidan con estos filtros.</p> : groups.map((group) => <div className="movement-group" key={group.date}><h3>{formatGroupDate(group.date)}</h3><ul>{group.transactions.map((item) => { const locked = isMonthClosed(item.date.slice(0, 7), closures); return <li key={item.id} className={locked ? 'locked' : ''}>
@@ -47,7 +49,9 @@ function MovementFilterPanel({ filters, accounts, categories, onChange, onClear 
   filters: MovementFilters; accounts: Account[]; categories: Category[]
   onChange<K extends keyof MovementFilters>(key: K, value: MovementFilters[K]): void; onClear(): void
 }) {
-  return <section className="card filter-panel" aria-label="Filtros de movimientos"><div className="filter-grid">
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  useEffect(() => { headingRef.current?.focus() }, [])
+  return <section className="card filter-panel" aria-label="Filtros de movimientos"><h2 ref={headingRef} tabIndex={-1} className="sr-only">Filtros de movimientos</h2><div className="filter-grid">
     <label>Periodo<select value={filters.period} onChange={(event) => onChange('period', event.target.value as MovementFilters['period'])}><option value="current">Mes actual</option><option value="previous">Mes anterior</option><option value="all">Todo</option><option value="custom">Personalizado</option></select></label>
     <label>Tipo<select value={filters.kind} onChange={(event) => onChange('kind', event.target.value as TransactionKind | 'all')}><option value="all">Todos</option><option value="expense">Gastos</option><option value="income">Ingresos</option><option value="transfer">Transferencias</option><option value="adjustment">Ajustes</option></select></label>
     <label>Cuenta<select value={filters.accountId} onChange={(event) => onChange('accountId', event.target.value)}><option value="">Todas</option>{accounts.map((item) => <option key={item.id} value={item.id}>{item.name}{item.archivedAt ? ' (archivada)' : ''}</option>)}</select></label>

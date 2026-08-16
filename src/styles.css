@@ -10,7 +10,7 @@ button:disabled { cursor: wait; opacity: .6; }
 .settings-button, .back-button, .close-button { display: grid; place-items: center; border: 0; color: #31584d; background: transparent; }
 .settings-button { width: 2.75rem; height: 2.75rem; border-radius: 50%; background: #e0e8e1; font-size: 1.1rem; }
 .back-button { width: 2.25rem; height: 2.75rem; font-size: 2rem; }
-.close-button { margin-left: auto; width: 2.25rem; height: 2.25rem; font-size: 1.5rem; }
+.close-button { margin-left: auto; width: 2.75rem; height: 2.75rem; font-size: 1.5rem; }
 h1, h2, p { margin-top: 0; }
 h1 { margin-bottom: 0; font-size: clamp(2rem, 9vw, 3.25rem); line-height: 1.05; letter-spacing: -.045em; }
 h2 { margin-bottom: 1rem; font-size: 1.15rem; }
@@ -28,7 +28,7 @@ h2 { margin-bottom: 1rem; font-size: 1.15rem; }
 .metric-grid span, .metric-grid strong { display: block; }
 .metric-grid span { color: #61716b; font-size: .72rem; }
 .metric-grid strong { margin-top: .15rem; font-size: clamp(.9rem, 4vw, 1.15rem); }
-.text-action { padding: .35rem; border: 0; color: #28634f; background: transparent; font-size: .78rem; font-weight: 750; }
+.text-action { min-height: 2.75rem; padding: .35rem; border: 0; color: #28634f; background: transparent; font-size: .78rem; font-weight: 750; }
 .section-title .text-action { margin-left: auto; }
 .primary-action { width: 100%; min-height: 3.25rem; border: 0; border-radius: 1rem; color: #fff; background: #e15f3b; font-weight: 800; box-shadow: 0 8px 22px #e15f3b2e; }
 .home-links, .settings-links { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; }
@@ -46,6 +46,7 @@ h2 { margin-bottom: 1rem; font-size: 1.15rem; }
 label { display: grid; gap: .35rem; color: #40534e; font-size: .82rem; font-weight: 700; }
 input, select, textarea { width: 100%; min-height: 2.9rem; padding: .65rem .75rem; border: 1px solid #cbd3cd; border-radius: .75rem; color: #172622; background: #fbfcfa; font-size: 1rem; }
 input:focus, select:focus, textarea:focus { outline: 3px solid #80ab9a66; border-color: #31705d; }
+button:focus-visible { outline: 3px solid #80ab9a66; outline-offset: 2px; }
 textarea { resize: vertical; }
 .optional-fields summary { color: #547269; cursor: pointer; font-size: .82rem; font-weight: 700; }
 .optional-fields label { margin-top: .7rem; }
@@ -94,8 +95,8 @@ form > button, .form-actions button { min-height: 2.8rem; padding: .65rem 1rem; 
 .kind-icon { display: grid; place-items: center; width: 2.15rem; height: 2.15rem; border-radius: .7rem; background: #e7ebe7; font-weight: 900; }
 .kind-icon.income { color: #287159; background: #dcebe4; }
 .kind-icon.expense { color: #a84a33; background: #f2dfd9; }
-.delete { padding: .5rem; border: 0; color: #9a371f; background: transparent; font-size: .75rem; }
-.restore { padding: .5rem; border: 0; color: #236451; background: transparent; font-size: .75rem; font-weight: 700; }
+.delete { min-height: 2.75rem; padding: .5rem; border: 0; color: #9a371f; background: transparent; font-size: .75rem; }
+.restore { min-height: 2.75rem; padding: .5rem; border: 0; color: #236451; background: transparent; font-size: .75rem; font-weight: 700; }
 .empty { margin-top: 1rem; padding: 1.2rem; border: 1px dashed #b8c4bd; border-radius: 1rem; color: #61716b; text-align: center; }
 .management { padding: 1.2rem .1rem; }
 .management > .card { margin: 1rem 0; }

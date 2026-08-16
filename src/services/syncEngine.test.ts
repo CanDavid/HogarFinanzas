@@ -64,6 +64,8 @@ class RepositoryStub implements SyncRepository {
   setSession = async (session: Session | null) => { this.session = session }
   getServerUrl = async () => 'https://script.google.com/macros/s/example/exec'
   setServerUrl = async () => undefined
+  hasLocalData = async () => false
+  importBackup = async () => ({ imported: 0 })
 }
 
 describe('SyncEngine', () => {
@@ -90,6 +92,24 @@ describe('SyncEngine', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Sin red')))
     await expect(new SyncEngine(repository).run()).rejects.toThrow('Sin red')
     expect(repository.transportError).toBe('Sin red')
+    vi.unstubAllGlobals()
+  })
+
+  it('splits more than 100 pending operations into sequential batches of at most 100', async () => {
+    const repository = new RepositoryStub()
+    repository.operations = Array.from({ length: 250 }, (_, index) => ({
+      operationId: `op-${index}`, localSequence: index, entityType: 'transaction', kind: 'create',
+      recordId: `record-${index}`, payload: {} as never, baseVersion: 0, attempts: 0, lastError: null, permanentFailure: false,
+    }))
+    const fetchMock = vi.fn().mockImplementation(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(init.body as string) as { operations: unknown[]; cursor: number }
+      expect(body.operations.length).toBeLessThanOrEqual(100)
+      return { ok: true, json: async () => ({ ok: true, data: { results: [], changes: [], cursor: body.cursor + 1 } }) }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(new SyncEngine(repository).run()).resolves.toEqual({ pushed: 0, pulled: 0, failed: 0 })
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(repository.cursor).toBe(6)
     vi.unstubAllGlobals()
   })
 })

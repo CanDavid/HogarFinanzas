@@ -190,7 +190,7 @@ Cada `SyncOperation` contiene UUID propio, `entityType`, tipo create/update/dele
 - `GET`: salud y versión, sin información privada.
 - `POST login`: usuario + clave doméstica; devuelve token y expiración.
 - `POST bootstrap`: snapshot inicial autenticado.
-- `POST sync`: token, cursor y hasta 100 operaciones; devuelve resultados, cambios y cursor.
+- `POST sync`: token, cursor y hasta 100 operaciones; devuelve resultados, cambios y cursor. El cliente trocea el outbox en lotes de como máximo 100 y aplica cada respuesta (resultados, cambios y cursor) antes de enviar el siguiente lote, para no bloquearse cuando el outbox supera ese límite.
 - Envelope: `{ ok, data?, error? }`.
 
 El POST usa `text/plain;charset=utf-8`, sigue la redirección de ContentService y nunca usa JSONP, `no-cors` ni datos privados en URL.
@@ -248,6 +248,7 @@ Apps Script revalida identidad, UUIDs, fechas, concepto e importe. Las operacion
 - Inicio muestra la variación de patrimonio contra el último mes cerrado anterior.
 - Análisis admite 3, 6 y 12 meses, año actual y fechas personalizadas. Calcula gasto mensual, ranking por categoría, presupuesto variable frente a gasto variable real, patrimonio de cierres, ahorro neto/tasa orientativa y progreso acumulado de objetivos activos.
 - Los gráficos conservan importes textuales accesibles. El patrimonio usa únicamente snapshots cerrados; las transferencias y ajustes se excluyen de ingresos y gastos; las lecturas son reglas deterministas locales y no recomendaciones.
+- Ajustes → Copia de seguridad exporta un JSON local con las diez entidades del hogar y permite restaurarlo solo cuando el dispositivo no tiene datos locales todavía; la restauración reordena la carga (cuentas/categorías/objetivos activos primero, cierres al final) y repara el estado archivado/completado/cerrado original tras encolar los movimientos dependientes, para satisfacer las validaciones reales del Web App.
 
 ## 9. Build y CI
 

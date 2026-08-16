@@ -79,6 +79,18 @@ describe('analysis domain', () => {
     expect(result.insights[0]).toContain('menos')
   })
 
+  it('groups each month independently even when the middle month has no activity', () => {
+    const result = buildAnalysis({ today: '2026-08-16', period: '3m', transactions: [
+      transaction('june-income', '2026-06-01', 'income', 40_000), transaction('june-expense', '2026-06-02', 'expense', 10_000),
+      transaction('august-expense', '2026-08-01', 'expense', 5_000),
+    ], budgets: [], categories: [food], closures: [], goals: [], allocations: [] })
+    expect(result.months).toEqual([
+      { month: '2026-06', incomeCents: 40_000, expenseCents: 10_000, resultCents: 30_000, savingsCents: 30_000, savingsRatePercent: 75 },
+      { month: '2026-07', incomeCents: 0, expenseCents: 0, resultCents: 0, savingsCents: 0, savingsRatePercent: 0 },
+      { month: '2026-08', incomeCents: 0, expenseCents: 5_000, resultCents: -5_000, savingsCents: -5_000, savingsRatePercent: 0 },
+    ])
+  })
+
   it('keeps net saving signed while clamping the orientative rate to zero', () => {
     const result = buildAnalysis({ today: '2026-08-16', period: '3m', transactions: [
       transaction('income', '2026-08-01', 'income', 10_000), transaction('expense', '2026-08-02', 'expense', 15_000),

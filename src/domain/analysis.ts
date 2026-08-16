@@ -102,8 +102,14 @@ export function buildAnalysis(input: AnalysisInput): AnalysisResult {
   const financial = visible.filter((item) => item.kind === 'income' || item.kind === 'expense')
   financial.forEach((item) => assertCents(item.amountCents))
 
+  const financialByMonth = new Map<string, Transaction[]>()
+  for (const item of financial) {
+    const month = item.date.slice(0, 7)
+    const bucket = financialByMonth.get(month)
+    if (bucket) bucket.push(item); else financialByMonth.set(month, [item])
+  }
   const months = range.months.map((month): MonthlyAnalysis => {
-    const items = financial.filter((item) => item.date.startsWith(month))
+    const items = financialByMonth.get(month) ?? []
     const incomeCents = sum(items.filter((item) => item.kind === 'income').map((item) => item.amountCents))
     const expenseCents = sum(items.filter((item) => item.kind === 'expense').map((item) => item.amountCents))
     const resultCents = checked(incomeCents - expenseCents)
@@ -131,10 +137,14 @@ export function buildAnalysis(input: AnalysisInput): AnalysisResult {
 
   const activeBudgets = input.budgets.filter((item) => !item.deletedAt && item.amountCents > 0 && range.months.includes(item.month))
   const variableExpenses = expenses.filter((item) => !item.recurringRuleId && !item.plannedItemId)
+  const variableByBudgetKey = new Map<string, number>()
+  for (const item of variableExpenses) {
+    const key = `${item.date.slice(0, 7)}:${item.categoryId}`
+    variableByBudgetKey.set(key, checked((variableByBudgetKey.get(key) ?? 0) + item.amountCents))
+  }
   const budgets = activeBudgets.map((budget): BudgetAnalysis => {
     assertCents(budget.amountCents)
-    const actualCents = sum(variableExpenses.filter((item) => item.date.startsWith(budget.month) && item.categoryId === budget.categoryId)
-      .map((item) => item.amountCents))
+    const actualCents = variableByBudgetKey.get(`${budget.month}:${budget.categoryId}`) ?? 0
     const category = categoryMap.get(budget.categoryId)
     return { month: budget.month, categoryId: budget.categoryId, categoryName: category?.name ?? 'Sin categoría',
       categoryIcon: category?.icon ?? '○', budgetCents: budget.amountCents, actualCents,

@@ -1,3 +1,5 @@
+import type { BackupPayload } from './backup'
+
 export type UserId = 'david' | 'esther'
 export type TransactionKind = 'income' | 'expense' | 'transfer' | 'adjustment'
 export type AccountType = 'checking' | 'savings' | 'investment' | 'cash'
@@ -235,4 +237,6 @@ export interface SyncRepository {
   setSession(session: Session | null): Promise<void>
   getServerUrl(): Promise<string>
   setServerUrl(url: string): Promise<void>
+  hasLocalData(): Promise<boolean>
+  importBackup(payload: BackupPayload, userId: UserId): Promise<{ imported: number }>
 }

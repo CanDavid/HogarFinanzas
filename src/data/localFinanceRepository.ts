@@ -1,3 +1,4 @@
+import type { BackupPayload } from '../domain/backup'
 import { localDateOnly, normalizeDateOnly } from '../domain/dates'
 import { validateClosureInput } from '../domain/closures'
 import { goalAssignedCents } from '../domain/goals'
@@ -5,19 +6,21 @@ import { assertMoneyCents } from '../domain/money'
 import { deterministicRecordId, occurrenceTransactionId } from '../domain/recurrence'
 import type {
   Account, AccountInput, Budget, Category, CategoryInput, EntityType, Goal, GoalAllocation, GoalAllocationInput, GoalInput, MonthlyClosure, MonthlyClosureInput, MonthlyPlan,
-  OperationResult, PlannedItem, PlannedItemInput, RecurringRule, RecurringRuleInput, Session, SyncChange, SyncEntity, SyncOperation,
+  OperationResult, PlannedItem, PlannedItemInput, RecurringRule, RecurringRuleInput, Session, SyncableRecord, SyncChange, SyncEntity, SyncOperation,
   SyncRepository, Transaction, TransactionInput, UserId,
 } from '../domain/types'
 import { getDatabase, type StoredMeta } from './database'
 
 const DEFAULT_SERVER_URL = import.meta.env.VITE_APPS_SCRIPT_URL ?? ''
+const ENTITY_STORES = ['transactions', 'accounts', 'categories', 'recurringRules', 'budgets', 'plannedItems',
+  'monthlyPlans', 'goals', 'goalAllocations', 'monthlyClosures'] as const
 
 export class LocalFinanceRepository implements SyncRepository {
   async listTransactions(): Promise<Transaction[]> {
     const database = await getDatabase()
     const stored = await database.getAll('transactions')
     const transactions = stored.map(normalizeTransaction)
-    await Promise.all(transactions.filter((item, index) => JSON.stringify(item) !== JSON.stringify(stored[index]))
+    await Promise.all(transactions.filter((item, index) => transactionRepairedFields(stored[index], item))
       .map((item) => database.put('transactions', item)))
     return transactions.filter((item) => !item.deletedAt)
       .sort((left, right) => right.date.localeCompare(left.date) || right.updatedAt.localeCompare(left.updatedAt))
@@ -514,6 +517,66 @@ export class LocalFinanceRepository implements SyncRepository {
     await transaction.done
   }
 
+  async hasLocalData(): Promise<boolean> {
+    const database = await getDatabase()
+    for (const store of ENTITY_STORES) { if ((await database.count(store)) > 0) return true }
+    return false
+  }
+
+  async importBackup(payload: BackupPayload, userId: UserId): Promise<{ imported: number }> {
+    if (await this.hasLocalData()) throw new Error('Ya hay datos en este dispositivo; la restauración solo está disponible en una casa recién inicializada.')
+    const database = await getDatabase()
+    const transaction = database.transaction([...ENTITY_STORES, 'outbox', 'meta'], 'readwrite')
+    let imported = 0
+    const created = <T extends SyncableRecord>(record: T): T => ({ ...record, version: 0, changeSequence: 0, deletedAt: null, createdBy: userId })
+
+    const archivedAccounts = new Map<string, string>()
+    for (const account of payload.accounts) {
+      if (account.archivedAt) archivedAccounts.set(account.id, account.archivedAt)
+      await queueLocalChange(transaction, 'account', 'create', created({ ...account, archivedAt: null }), 0); imported += 1
+    }
+    const archivedCategories = new Map<string, string>()
+    for (const category of payload.categories) {
+      if (category.archivedAt) archivedCategories.set(category.id, category.archivedAt)
+      await queueLocalChange(transaction, 'category', 'create', created({ ...category, archivedAt: null }), 0); imported += 1
+    }
+
+    const goalState = new Map<string, { completedAt: string | null; archivedAt: string | null }>()
+    for (const goal of payload.goals) {
+      if (goal.completedAt || goal.archivedAt) goalState.set(goal.id, { completedAt: goal.completedAt, archivedAt: goal.archivedAt })
+      await queueLocalChange(transaction, 'goal', 'create', created({ ...goal, completedAt: null, archivedAt: null }), 0); imported += 1
+    }
+    for (const rule of payload.recurringRules) { await queueLocalChange(transaction, 'recurringRule', 'create', created(rule), 0); imported += 1 }
+
+    for (const item of payload.plannedItems) { await queueLocalChange(transaction, 'plannedItem', 'create', created(item), 0); imported += 1 }
+    for (const item of payload.transactions) { await queueLocalChange(transaction, 'transaction', 'create', created(normalizeTransaction(item)), 0); imported += 1 }
+    for (const item of payload.budgets) { await queueLocalChange(transaction, 'budget', 'create', created(normalizeBudget(item)), 0); imported += 1 }
+    for (const item of payload.monthlyPlans) { await queueLocalChange(transaction, 'monthlyPlan', 'create', created(normalizeMonthlyPlan(item)), 0); imported += 1 }
+
+    for (const item of payload.goalAllocations) { await queueLocalChange(transaction, 'goalAllocation', 'create', created(normalizeGoalAllocation(item)), 0); imported += 1 }
+
+    for (const [id, archivedAt] of archivedAccounts) {
+      const current = await transaction.objectStore('accounts').get(id)
+      if (current) await queueLocalChange(transaction, 'account', 'update', { ...current, archivedAt, updatedAt: new Date().toISOString() }, current.version)
+    }
+    for (const [id, archivedAt] of archivedCategories) {
+      const current = await transaction.objectStore('categories').get(id)
+      if (current) await queueLocalChange(transaction, 'category', 'update', { ...current, archivedAt, updatedAt: new Date().toISOString() }, current.version)
+    }
+    for (const [id, state] of goalState) {
+      const current = await transaction.objectStore('goals').get(id)
+      if (current) await queueLocalChange(transaction, 'goal', 'update', { ...current, ...state, updatedAt: new Date().toISOString() }, current.version)
+    }
+
+    for (const closure of payload.monthlyClosures) {
+      const record = created(normalizeMonthlyClosure({ ...closure, revision: 1, closedBy: userId, reopenedAt: null, reopenedBy: null }))
+      await queueLocalChange(transaction, 'monthlyClosure', 'create', record, 0); imported += 1
+    }
+
+    await transaction.done
+    return { imported }
+  }
+
   getCursor(): Promise<number> { return this.getMeta<number>('cursor', 0) }
   setCursor(cursor: number): Promise<void> { return this.setMeta('cursor', cursor) }
   getSession(): Promise<Session | null> { return this.getMeta<Session | null>('session', null) }
@@ -614,6 +677,14 @@ function normalizeTransactionInput(input: TransactionInput, current?: Transactio
     recurringRuleId: input.recurringRuleId === undefined ? current?.recurringRuleId ?? null : input.recurringRuleId,
     recurringOccurrenceDate: input.recurringOccurrenceDate === undefined ? current?.recurringOccurrenceDate ?? null : input.recurringOccurrenceDate,
     plannedItemId: input.plannedItemId === undefined ? current?.plannedItemId ?? null : input.plannedItemId }
+}
+
+function transactionRepairedFields(original: Transaction, normalized: Transaction): boolean {
+  return original.date !== normalized.date || original.note !== normalized.note
+    || original.accountId !== normalized.accountId || original.categoryId !== normalized.categoryId
+    || original.sourceAccountId !== normalized.sourceAccountId || original.destinationAccountId !== normalized.destinationAccountId
+    || original.recurringRuleId !== normalized.recurringRuleId || original.recurringOccurrenceDate !== normalized.recurringOccurrenceDate
+    || original.plannedItemId !== normalized.plannedItemId
 }
 
 function normalizeTransaction(transaction: Transaction): Transaction {

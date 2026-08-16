@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { BACKUP_SCHEMA_VERSION, type BackupPayload } from '../domain/backup'
+import type { UserId } from '../domain/types'
 import { clearDatabaseForTests, getDatabase } from './database'
 import { LocalFinanceRepository } from './localFinanceRepository'
 
@@ -232,7 +234,71 @@ describe('LocalFinanceRepository', () => {
     expect((await repository.listTransactions()).some((item) => item.id === created.id)).toBe(false)
     expect(await repository.pendingOperations()).toEqual([])
   })
+
+  it('reports whether the device already has local data', async () => {
+    const repository = new LocalFinanceRepository()
+    expect(await repository.hasLocalData()).toBe(false)
+    await repository.createCategory({ name: 'Casa', kind: 'expense', icon: '🏠' }, 'david')
+    expect(await repository.hasLocalData()).toBe(true)
+  })
+
+  it('rejects restoring a backup when the device already has local data', async () => {
+    const repository = new LocalFinanceRepository()
+    await repository.createAccount({ name: 'Cuenta', type: 'checking', initialBalanceCents: 0, includeInNetWorth: true, includeInLiquidity: true }, 'david')
+    const payload = await payloadFrom(repository, 'david')
+    await expect(repository.importBackup(payload, 'david')).rejects.toThrow('recién inicializada')
+  })
+
+  it('restores an archived account/category, a completed goal and a reclosed month, reattributing authorship to the restoring user', async () => {
+    const repository = new LocalFinanceRepository()
+    const account = await repository.createAccount({ name: 'Antigua', type: 'checking', initialBalanceCents: 1000, includeInNetWorth: true, includeInLiquidity: true }, 'esther')
+    const category = await repository.createCategory({ name: 'Ocio', kind: 'expense', icon: '🎉' }, 'esther')
+    await repository.createTransaction({ kind: 'expense', amountCents: 500, concept: 'Cena', note: '', date: '2026-08-01',
+      accountId: account.id, categoryId: category.id, sourceAccountId: null, destinationAccountId: null }, 'esther')
+    await repository.archiveAccount(account.id)
+    await repository.archiveCategory(category.id)
+    const goal = await repository.createGoal({ name: 'Viaje', targetAmountCents: 10_000, targetDate: null, icon: '✈️', note: '' }, 10_000, 'esther')
+    await repository.setGoalCompleted(goal.id, true)
+    await repository.closeMonth(closureInput(), 'esther')
+    await repository.reopenMonth('2026-08', 'esther')
+    await repository.closeMonth(closureInput(), 'esther')
+
+    const payload = await payloadFrom(repository, 'esther')
+    expect(payload.monthlyClosures[0]).toMatchObject({ revision: 2 })
+
+    await clearDatabaseForTests()
+    const restored = new LocalFinanceRepository()
+    const result = await restored.importBackup(payload, 'david')
+    expect(result.imported).toBeGreaterThan(0)
+
+    const [accounts, categories, goals, closures, transactions, allocations] = await Promise.all([
+      restored.listAccounts(), restored.listCategories(), restored.listGoals(), restored.listMonthlyClosures(),
+      restored.listTransactions(), restored.listGoalAllocations(),
+    ])
+    expect(accounts[0]).toMatchObject({ archivedAt: expect.any(String), createdBy: 'david' })
+    expect(categories[0]).toMatchObject({ archivedAt: expect.any(String), createdBy: 'david' })
+    expect(goals[0]).toMatchObject({ completedAt: expect.any(String), createdBy: 'david' })
+    expect(closures[0]).toMatchObject({ revision: 1, closedBy: 'david', reopenedAt: null, reopenedBy: null })
+    expect(transactions).toMatchObject([{ concept: 'Cena', createdBy: 'david' }])
+    expect(allocations).toHaveLength(1)
+
+    const order = (await restored.pendingOperations()).map((operation) => operation.entityType)
+    expect(order.indexOf('account')).toBeLessThan(order.indexOf('transaction'))
+    expect(order.indexOf('category')).toBeLessThan(order.indexOf('transaction'))
+    expect(order.indexOf('goal')).toBeLessThan(order.indexOf('goalAllocation'))
+    expect(order[order.length - 1]).toBe('monthlyClosure')
+  })
 })
+
+async function payloadFrom(repository: LocalFinanceRepository, userId: UserId): Promise<BackupPayload> {
+  const [accounts, categories, transactions, recurringRules, budgets, plannedItems, monthlyPlans, goals, goalAllocations, monthlyClosures] = await Promise.all([
+    repository.listAccounts(), repository.listCategories(), repository.listTransactions(), repository.listRecurringRules(),
+    repository.listBudgets(), repository.listPlannedItems(), repository.listMonthlyPlans(), repository.listGoals(),
+    repository.listGoalAllocations(), repository.listMonthlyClosures(),
+  ])
+  return { schemaVersion: BACKUP_SCHEMA_VERSION, exportedAt: new Date().toISOString(), exportedBy: userId,
+    accounts, categories, transactions, recurringRules, budgets, plannedItems, monthlyPlans, goals, goalAllocations, monthlyClosures }
+}
 
 function input(kind: 'income' | 'expense', amountCents: number) {
   return { kind, amountCents, concept: kind === 'income' ? 'Ingreso' : 'Compra', note: '', date: '2026-08-14', accountId: 'account-1', categoryId: 'category-1', sourceAccountId: null, destinationAccountId: null }

@@ -759,6 +759,14 @@ Secciones:
 - reintentar;
 - explicación de uso compartido.
 
+## Copia de seguridad
+
+- exportar un archivo JSON local con todos los datos del hogar (cuentas, categorías, movimientos, recurrentes, presupuestos, previstos, distribución, objetivos, aportaciones/retiradas y cierres);
+- restaurar ese archivo solo está disponible en un dispositivo sin datos locales todavía (recuperación ante desastre: nuevo iPhone, o un hogar reinicializado por completo);
+- antes de restaurar se muestra un resumen con el recuento de cada tipo de dato y exige confirmación explícita;
+- al restaurar, la autoría de cada registro pasa a quien restaura (el archivo puede contener datos originalmente creados por el otro miembro del hogar);
+- no sustituye ni fusiona datos ya sincronizados; no requiere Google Drive ni permisos adicionales.
+
 ## Privacidad
 
 - datos locales en IndexedDB y copia compartida en Google Sheets mediante Apps Script;
