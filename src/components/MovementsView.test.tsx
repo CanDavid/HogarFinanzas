@@ -19,7 +19,8 @@ function showAllPeriods() {
 }
 
 function baseProps(transactions: Transaction[]) {
-  return { transactions, accounts, categories, closures: [], onSave: vi.fn().mockResolvedValue(undefined), onDelete: vi.fn().mockResolvedValue(undefined) }
+  return { transactions, accounts, categories, closures: [], onSave: vi.fn().mockResolvedValue(undefined), onDelete: vi.fn().mockResolvedValue(undefined),
+    onConvertToPlanned: vi.fn().mockResolvedValue(undefined) }
 }
 
 describe('MovementsView', () => {
@@ -51,6 +52,24 @@ describe('MovementsView', () => {
     showAllPeriods()
     fireEvent.click(screen.getByRole('button', { name: 'Eliminar Supermercado' }))
     await waitFor(() => expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'tx-1' })))
+  })
+
+  it('offers converting a wrongly-entered future movement into a planned item', async () => {
+    const onConvertToPlanned = vi.fn().mockResolvedValue(undefined)
+    render(<MovementsView {...baseProps([transaction({ date: '2099-01-01' })])} onConvertToPlanned={onConvertToPlanned} />)
+    showAllPeriods()
+    fireEvent.click(screen.getByRole('button', { name: 'Convertir Supermercado en previsto' }))
+    await waitFor(() => expect(onConvertToPlanned).toHaveBeenCalledWith(expect.objectContaining({ id: 'tx-1' })))
+  })
+
+  it('does not offer converting a past movement, a transfer or one already linked to a recurrence', () => {
+    render(<MovementsView {...baseProps([
+      transaction({ id: 'past', date: '2020-01-01' }),
+      transaction({ id: 'transfer', kind: 'transfer', accountId: null, sourceAccountId: 'account-1', destinationAccountId: 'account-1', date: '2099-01-01' }),
+      transaction({ id: 'recurring', date: '2099-01-01', recurringRuleId: 'rule-1', recurringOccurrenceDate: '2099-01-01' }),
+    ])} />)
+    showAllPeriods()
+    expect(screen.queryByRole('button', { name: /Convertir .* en previsto/ })).not.toBeInTheDocument()
   })
 
   it('locks a movement from a closed month instead of letting it be edited or deleted', () => {

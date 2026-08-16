@@ -43,6 +43,7 @@ class RepositoryStub implements SyncRepository {
   setPlannedItemStatus = async () => undefined
   setRecurringOccurrenceStatus = async () => { throw new Error('unused') }
   materializePlannedItem = async () => { throw new Error('unused') }
+  convertTransactionToPlannedItem = async () => { throw new Error('unused') }
   setMonthlyPlan = async () => { throw new Error('unused') }
   createGoal = async () => { throw new Error('unused') }
   updateGoal = async () => { throw new Error('unused') }

@@ -155,6 +155,36 @@ describe('LocalFinanceRepository', () => {
     expect(await reopened.listTransactions()).toHaveLength(1)
   })
 
+  it('converts a wrongly-entered future movement into a pending planned item', async () => {
+    const repository = new LocalFinanceRepository()
+    const transaction = await repository.createTransaction({ ...input('expense', 6_500), concept: 'Reforma cocina', date: '2026-09-20' }, 'esther')
+    const item = await repository.convertTransactionToPlannedItem(transaction.id, 'david')
+    expect(item).toMatchObject({ source: 'manual', kind: 'expense', amountCents: 6_500, concept: 'Reforma cocina',
+      date: '2026-09-20', accountId: 'account-1', categoryId: 'category-1', status: 'pending', createdBy: 'david' })
+    expect(await repository.listTransactions()).toEqual([])
+    expect(await repository.listPlannedItems()).toEqual([item])
+    expect((await repository.pendingOperations()).map((operation) => [operation.entityType, operation.kind]))
+      .toEqual([['transaction', 'create'], ['transaction', 'delete'], ['plannedItem', 'create']])
+  })
+
+  it('refuses to convert a transfer or a movement already linked to a recurrence or a previous planned item', async () => {
+    const repository = new LocalFinanceRepository()
+    const transfer = await repository.createTransaction({ kind: 'transfer', amountCents: 1_000, concept: 'Traspaso', note: '',
+      date: '2026-09-20', accountId: null, categoryId: null, sourceAccountId: 'account-1', destinationAccountId: 'account-2' }, 'david')
+    await expect(repository.convertTransactionToPlannedItem(transfer.id, 'david')).rejects.toThrow('ingresos y gastos')
+
+    const recurring = await repository.createTransactionWithRecurrence(input('expense', 6_500), {
+      kind: 'expense', amountCents: 6_500, concept: 'Internet', note: '', accountId: 'account-1', categoryId: 'category-1',
+      frequency: 'monthly', startDate: '2026-09-14', endDate: null,
+    }, 'david')
+    await expect(repository.convertTransactionToPlannedItem(recurring.id, 'david')).rejects.toThrow('vinculado')
+
+    const item = await repository.createPlannedItem({ kind: 'expense', amountCents: 4_250, concept: 'Seguro puntual', note: '',
+      date: '2026-08-20', accountId: 'account-1', categoryId: 'category-1' }, 'david')
+    const materialized = await repository.materializePlannedItem(item.id, 'david')
+    await expect(repository.convertTransactionToPlannedItem(materialized.id, 'david')).rejects.toThrow('vinculado')
+  })
+
   it('stores one deterministic omission per recurring occurrence and can reactivate it', async () => {
     const repository = new LocalFinanceRepository()
     const rule = await repository.createRecurringRule({ kind: 'expense', amountCents: 1_200, concept: 'Suscripción', note: '',

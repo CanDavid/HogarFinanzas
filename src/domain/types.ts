@@ -216,6 +216,7 @@ export interface SyncRepository {
   setPlannedItemStatus(id: string, status: PlannedItem['status']): Promise<void>
   setRecurringOccurrenceStatus(ruleId: string, date: string, status: PlannedItem['status'], userId: UserId): Promise<PlannedItem>
   materializePlannedItem(id: string, userId: UserId): Promise<Transaction>
+  convertTransactionToPlannedItem(transactionId: string, userId: UserId): Promise<PlannedItem>
   setMonthlyPlan(month: string, savingsAllocationCents: number, investmentAllocationCents: number, userId: UserId): Promise<MonthlyPlan>
   createGoal(input: GoalInput, initialAmountCents: number, userId: UserId): Promise<Goal>
   updateGoal(id: string, input: GoalInput): Promise<Goal>

@@ -79,6 +79,7 @@ export default function App() {
   async function afterLocalChange(action: () => Promise<unknown>) { await action(); await refreshLocal(); if (navigator.onLine) void synchronize() }
   async function save(transaction: Transaction | undefined, input: TransactionInput, recurrence?: RecurringRuleInput) { if (!session) return; await afterLocalChange(() => transaction ? repository.updateTransaction(transaction.id, input) : recurrence ? repository.createTransactionWithRecurrence(input, recurrence, session.userId) : repository.createTransaction(input, session.userId)) }
   async function remove(transaction: Transaction) { if (window.confirm(`¿Eliminar “${transaction.concept}”?`)) await afterLocalChange(() => repository.deleteTransaction(transaction.id)) }
+  async function convertToPlanned(transaction: Transaction) { if (!session) return; await afterLocalChange(() => repository.convertTransactionToPlannedItem(transaction.id, session.userId)) }
   async function logout() { await repository.setSession(null); setSession(null); setSyncMessage('Solo en este dispositivo') }
 
   if (!ready) return <main className="center"><p>Cargando tus finanzas…</p></main>
@@ -94,8 +95,10 @@ export default function App() {
       <div className="topbar-actions"><button className="settings-button" onClick={() => setPage('settings')} aria-label="Abrir configuración">⚙</button><button className="avatar" onClick={logout} aria-label={`Cerrar sesión de ${session.userId}`}>{session.userId[0].toUpperCase()}</button></div></header>
     <main>
       <button className={`sync-banner ${syncState}`} onClick={() => void synchronize()} disabled={syncState === 'syncing'} role="status" aria-live="polite"><span aria-hidden="true">{online ? '●' : '○'}</span><span>{syncMessage}{pendingCount ? ` · ${pendingCount} pendientes` : ''}</span><span aria-hidden="true">↻</span></button>
-      {page === 'home' && <HomeView transactions={transactions} accounts={accounts} categories={categories} goals={goals} allocations={goalAllocations} closures={monthlyClosures} onAddMovement={() => openMovements('add')} onOpenMovements={() => openMovements('list')} onOpenAccounts={() => setPage('accounts')} onOpenCategories={() => setPage('categories')} onOpenPortfolio={() => setPage('portfolio')} onOpenGoals={() => setPage('goals')} />}
-      {page === 'movements' && <MovementsView key={movementIntent.key} transactions={transactions} accounts={accounts} categories={categories} closures={monthlyClosures} startAdding={movementIntent.mode === 'add'} initialKind={movementIntent.initialKind} initialAccountId={movementIntent.initialAccountId} onSave={save} onDelete={remove} />}
+      {page === 'home' && <HomeView transactions={transactions} accounts={accounts} categories={categories} goals={goals} allocations={goalAllocations} closures={monthlyClosures}
+        recurringRules={recurringRules} plannedItems={plannedItems} budgets={budgets} monthlyPlans={monthlyPlans}
+        onAddMovement={() => openMovements('add')} onOpenMovements={() => openMovements('list')} onOpenAccounts={() => setPage('accounts')} onOpenCategories={() => setPage('categories')} onOpenPortfolio={() => setPage('portfolio')} onOpenGoals={() => setPage('goals')} />}
+      {page === 'movements' && <MovementsView key={movementIntent.key} transactions={transactions} accounts={accounts} categories={categories} closures={monthlyClosures} startAdding={movementIntent.mode === 'add'} initialKind={movementIntent.initialKind} initialAccountId={movementIntent.initialAccountId} onSave={save} onDelete={remove} onConvertToPlanned={convertToPlanned} />}
       {page === 'plan' && <PlanView transactions={transactions} rules={recurringRules} plannedItems={plannedItems} budgets={budgets} monthlyPlans={monthlyPlans} accounts={accounts} categories={categories}
         goals={goals} goalAllocations={goalAllocations} closures={monthlyClosures}
         onCreateItem={(input) => afterLocalChange(() => repository.createPlannedItem(input, session.userId))}

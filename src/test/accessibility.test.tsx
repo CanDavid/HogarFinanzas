@@ -22,7 +22,7 @@ describe('accessibility smoke tests', () => {
 
   it('MovementsView has no critical accessibility violations', async () => {
     const { container } = render(<MovementsView transactions={[transaction]} accounts={[account]} categories={[category]} closures={[]}
-      onSave={vi.fn().mockResolvedValue(undefined)} onDelete={vi.fn().mockResolvedValue(undefined)} />)
+      onSave={vi.fn().mockResolvedValue(undefined)} onDelete={vi.fn().mockResolvedValue(undefined)} onConvertToPlanned={vi.fn().mockResolvedValue(undefined)} />)
     expect(await axe(container)).toHaveNoViolations()
   })
 

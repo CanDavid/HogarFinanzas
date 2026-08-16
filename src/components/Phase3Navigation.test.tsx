@@ -24,7 +24,7 @@ describe('Phase 3 navigation and movements', () => {
   })
 
   it('searches notes and filters movements by member', () => {
-    render(<MovementsView transactions={transactions} accounts={accounts} categories={categories} closures={[]} onSave={vi.fn()} onDelete={vi.fn()} />)
+    render(<MovementsView transactions={transactions} accounts={accounts} categories={categories} closures={[]} onSave={vi.fn()} onDelete={vi.fn()} onConvertToPlanned={vi.fn()} />)
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'especial' } })
     expect(screen.getByText('Supermercado')).toBeInTheDocument()
     expect(screen.queryByText('Café')).not.toBeInTheDocument()
@@ -36,7 +36,7 @@ describe('Phase 3 navigation and movements', () => {
   })
 
   it('opens the add form from the movements toolbar', () => {
-    render(<MovementsView transactions={transactions} accounts={accounts} categories={categories} closures={[]} onSave={vi.fn()} onDelete={vi.fn()} />)
+    render(<MovementsView transactions={transactions} accounts={accounts} categories={categories} closures={[]} onSave={vi.fn()} onDelete={vi.fn()} onConvertToPlanned={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: 'Añadir movimiento' }))
     expect(screen.getByRole('form', { name: 'Añadir movimiento' })).toBeInTheDocument()
   })
@@ -47,7 +47,7 @@ describe('Phase 3 navigation and movements', () => {
       closedAt: new Date().toISOString(), closedBy: 'david' as const, reopenedAt: null, reopenedBy: null, transactionCount: 2,
       pendingIncomeCount: 0, pendingExpenseCount: 0, actualIncomeCents: 0, actualExpenseCents: 1734, realSurplusCents: -1734,
       projectedSurplusCents: -1734, netWorthCents: 0, liquidityCents: 0, savingsCents: 0, investmentCents: 0, goalReservedCents: 0 }
-    render(<MovementsView transactions={transactions} accounts={accounts} categories={categories} closures={[closure]} onSave={vi.fn()} onDelete={onDelete} />)
+    render(<MovementsView transactions={transactions} accounts={accounts} categories={categories} closures={[closure]} onSave={vi.fn()} onDelete={onDelete} onConvertToPlanned={vi.fn()} />)
     expect(screen.getAllByText('Cerrado')).toHaveLength(2)
     expect(screen.queryByRole('button', { name: 'Eliminar Supermercado' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Supermercado, mes cerrado' })).toBeDisabled()

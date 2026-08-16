@@ -283,6 +283,24 @@ export class LocalFinanceRepository implements SyncRepository {
     await this.writeLocalChange('transaction', 'create', record, 0); return record
   }
 
+  async convertTransactionToPlannedItem(transactionId: string, userId: UserId): Promise<PlannedItem> {
+    const database = await getDatabase(); const current = await database.get('transactions', transactionId)
+    if (!current || current.deletedAt) throw new Error('El movimiento ya no está disponible.')
+    if (current.kind !== 'income' && current.kind !== 'expense') throw new Error('Solo los ingresos y gastos pueden convertirse en previstos.')
+    if (current.recurringRuleId || current.plannedItemId) throw new Error('Este movimiento ya está vinculado a una recurrencia o a un previsto.')
+    if (!current.accountId || !current.categoryId) throw new Error('El movimiento necesita cuenta y categoría para convertirse en previsto.')
+    await this.assertMonthOpen(current.date.slice(0, 7))
+    const now = new Date().toISOString()
+    const plannedItem = newRecord<PlannedItem>({ source: 'manual', recurringRuleId: null, kind: current.kind, amountCents: current.amountCents,
+      concept: current.concept, note: current.note, date: current.date, accountId: current.accountId, categoryId: current.categoryId,
+      status: 'pending', createdBy: userId })
+    const transaction = database.transaction(['transactions', 'plannedItems', 'outbox', 'meta'], 'readwrite')
+    await queueLocalChange(transaction, 'transaction', 'delete', { ...normalizeTransaction(current), deletedAt: now, updatedAt: now }, current.version)
+    await queueLocalChange(transaction, 'plannedItem', 'create', plannedItem, 0)
+    await transaction.done
+    return plannedItem
+  }
+
   async setMonthlyPlan(month: string, savingsAllocationCents: number, investmentAllocationCents: number, userId: UserId): Promise<MonthlyPlan> {
     validateMonth(month); assertMoneyCents(savingsAllocationCents); assertMoneyCents(investmentAllocationCents)
     await this.assertMonthOpen(month)
