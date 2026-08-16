@@ -168,22 +168,41 @@ describe('LocalFinanceRepository', () => {
       .toEqual([['transaction', 'create'], ['transaction', 'delete'], ['plannedItem', 'create']])
   })
 
-  it('refuses to convert a transfer, but converting a materialized recurrence just un-materializes it back to pending', async () => {
+  it('refuses to convert a transfer', async () => {
     const repository = new LocalFinanceRepository()
     const transfer = await repository.createTransaction({ kind: 'transfer', amountCents: 1_000, concept: 'Traspaso', note: '',
       date: '2026-09-20', accountId: null, categoryId: null, sourceAccountId: 'account-1', destinationAccountId: 'account-2' }, 'david')
     await expect(repository.convertTransactionToPlannedItem(transfer.id, 'david')).rejects.toThrow('ingresos y gastos')
+  })
 
-    const recurring = await repository.createTransactionWithRecurrence(input('expense', 6_500), {
+  it('converting a later occurrence already covered by the rule just un-materializes it, without duplicating it', async () => {
+    const repository = new LocalFinanceRepository()
+    // La regla nace con el movimiento fundador fechado el 14 de agosto; su propia secuencia solo empieza en la ocurrencia SIGUIENTE (14 de septiembre).
+    await repository.createTransactionWithRecurrence(input('expense', 6_500), {
       kind: 'expense', amountCents: 6_500, concept: 'Internet', note: '', accountId: 'account-1', categoryId: 'category-1',
       frequency: 'monthly', startDate: '2026-09-14', endDate: null,
     }, 'david')
-    await repository.convertTransactionToPlannedItem(recurring.id, 'esther')
-    expect((await repository.listTransactions()).some((item) => item.id === recurring.id)).toBe(false)
-    expect(await repository.listPlannedItems()).toEqual([]) // no manual previsto duplicado: lo genera la propia regla
     const [rule] = await repository.listRecurringRules()
+    const september = await repository.materializeRecurringOccurrence(rule.id, '2026-09-14', 'david') // registrada con demasiada antelación
+
+    await repository.convertTransactionToPlannedItem(september.id, 'esther')
+    expect((await repository.listTransactions()).some((item) => item.id === september.id)).toBe(false)
+    expect(await repository.listPlannedItems()).toEqual([]) // no crea un previsto manual duplicado: la propia regla ya lo representa
     const plan = buildMonthlyPlan('2026-09', [rule], [], [], [])
     expect(plan.items).toEqual([expect.objectContaining({ recurringRuleId: rule.id, date: '2026-09-14', status: 'pending', transactionId: null })])
+  })
+
+  it('converting the founding occurrence of a recurring rule creates a manual previsto, because the rule sequence never covers it', async () => {
+    const repository = new LocalFinanceRepository()
+    const founding = await repository.createTransactionWithRecurrence({ ...input('expense', 10_000), concept: 'Luz Endesa' }, {
+      kind: 'expense', amountCents: 10_000, concept: 'Luz Endesa', note: '', accountId: 'account-1', categoryId: 'category-1',
+      frequency: 'monthly', startDate: '2026-09-14', endDate: null,
+    }, 'david')
+    await repository.convertTransactionToPlannedItem(founding.id, 'esther')
+    expect(await repository.listTransactions()).toEqual([])
+    const [item] = await repository.listPlannedItems()
+    expect(item).toMatchObject({ source: 'manual', recurringRuleId: null, kind: 'expense', amountCents: 10_000,
+      concept: 'Luz Endesa', date: '2026-08-14', status: 'pending', createdBy: 'esther' })
   })
 
   it('converting a movement materialized from a manual previsto leaves the original previsto pending again', async () => {

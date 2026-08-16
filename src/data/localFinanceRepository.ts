@@ -3,7 +3,7 @@ import { localDateOnly, normalizeDateOnly } from '../domain/dates'
 import { validateClosureInput } from '../domain/closures'
 import { goalAssignedCents } from '../domain/goals'
 import { assertMoneyCents } from '../domain/money'
-import { deterministicRecordId, occurrenceTransactionId } from '../domain/recurrence'
+import { deterministicRecordId, occurrenceDates, occurrenceTransactionId } from '../domain/recurrence'
 import type {
   Account, AccountInput, Budget, Category, CategoryInput, EntityType, Goal, GoalAllocation, GoalAllocationInput, GoalInput, MonthlyClosure, MonthlyClosureInput, MonthlyPlan,
   OperationResult, PlannedItem, PlannedItemInput, RecurringRule, RecurringRuleInput, Session, SyncableRecord, SyncChange, SyncEntity, SyncOperation,
@@ -289,7 +289,18 @@ export class LocalFinanceRepository implements SyncRepository {
     if (current.kind !== 'income' && current.kind !== 'expense') throw new Error('Solo los ingresos y gastos pueden convertirse en previstos.')
     await this.assertMonthOpen(current.date.slice(0, 7))
     const now = new Date().toISOString()
-    if (current.recurringRuleId || current.plannedItemId) {
+
+    let representedElsewhere = false
+    if (current.plannedItemId) {
+      const original = await database.get('plannedItems', current.plannedItemId)
+      representedElsewhere = Boolean(original && !original.deletedAt)
+    } else if (current.recurringRuleId && current.recurringOccurrenceDate) {
+      const rule = await database.get('recurringRules', current.recurringRuleId)
+      // La regla solo genera esta fecha como previsto virtual si cae en su propia secuencia de ocurrencias
+      // (rule.startDate empieza en la ocurrencia SIGUIENTE a la que crea la regla, así que esa primera nunca está cubierta).
+      representedElsewhere = Boolean(rule && !rule.deletedAt && rule.active && occurrenceDates(rule, 1200).includes(current.recurringOccurrenceDate))
+    }
+    if (representedElsewhere) {
       // El previsto ya existe (lo genera la recurrencia, o sigue en plannedItems el original): basta con retirar el movimiento.
       await this.writeLocalChange('transaction', 'delete', { ...normalizeTransaction(current), deletedAt: now, updatedAt: now }, current.version)
       return
