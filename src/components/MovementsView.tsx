@@ -42,7 +42,7 @@ export function MovementsView({ transactions, accounts, categories, closures, st
     <section className="movements"><div className="section-title"><h2>Actividad</h2><span>{filtered.length}</span></div>
       {groups.length === 0 ? <p className="empty">No hay movimientos que coincidan con estos filtros.</p> : groups.map((group) => <div className="movement-group" key={group.date}><h3>{formatGroupDate(group.date)}</h3><ul>{group.transactions.map((item) => {
         const locked = isMonthClosed(item.date.slice(0, 7), closures)
-        const convertible = (item.kind === 'income' || item.kind === 'expense') && item.date > today && !item.recurringRuleId && !item.plannedItemId
+        const convertible = (item.kind === 'income' || item.kind === 'expense') && item.date > today
         return <li key={item.id} className={locked ? 'locked' : ''}>
         <button className="movement-main" onClick={() => edit(item)} disabled={locked} aria-label={locked ? `${item.concept}, mes cerrado` : undefined}><span className={`kind-icon ${item.kind}`} aria-hidden="true">{kindIcon(item.kind)}</span><span><strong>{item.concept}{item.recurringRuleId && <span className="recurring-badge">Recurrente</span>}{locked && <span className="closed-badge">Cerrado</span>}</strong><small>{movementContext(item, accountNames, categoryNames)} · {displayUser(item.createdBy)}</small>{item.note && <small className="movement-note">{item.note}</small>}</span><strong className={item.kind}>{movementAmount(item)}</strong></button>
         {!locked && <div className="movement-actions"><button className="delete" onClick={() => void onDelete(item)} aria-label={`Eliminar ${item.concept}`}>Eliminar</button>

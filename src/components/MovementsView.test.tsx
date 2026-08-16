@@ -62,14 +62,23 @@ describe('MovementsView', () => {
     await waitFor(() => expect(onConvertToPlanned).toHaveBeenCalledWith(expect.objectContaining({ id: 'tx-1' })))
   })
 
-  it('does not offer converting a past movement, a transfer or one already linked to a recurrence', () => {
+  it('does not offer converting a past movement or a transfer', () => {
     render(<MovementsView {...baseProps([
       transaction({ id: 'past', date: '2020-01-01' }),
       transaction({ id: 'transfer', kind: 'transfer', accountId: null, sourceAccountId: 'account-1', destinationAccountId: 'account-1', date: '2099-01-01' }),
-      transaction({ id: 'recurring', date: '2099-01-01', recurringRuleId: 'rule-1', recurringOccurrenceDate: '2099-01-01' }),
     ])} />)
     showAllPeriods()
     expect(screen.queryByRole('button', { name: /Convertir .* en previsto/ })).not.toBeInTheDocument()
+  })
+
+  it('also offers converting a future movement already materialized from a recurrence or a planned item', () => {
+    render(<MovementsView {...baseProps([
+      transaction({ id: 'recurring', concept: 'Internet', date: '2099-01-01', recurringRuleId: 'rule-1', recurringOccurrenceDate: '2099-01-01' }),
+      transaction({ id: 'planned', concept: 'Seguro', date: '2099-01-01', plannedItemId: 'planned-1' }),
+    ])} />)
+    showAllPeriods()
+    expect(screen.getByRole('button', { name: 'Convertir Internet en previsto' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Convertir Seguro en previsto' })).toBeInTheDocument()
   })
 
   it('locks a movement from a closed month instead of letting it be edited or deleted', () => {

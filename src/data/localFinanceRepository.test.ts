@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { BACKUP_SCHEMA_VERSION, type BackupPayload } from '../domain/backup'
+import { buildMonthlyPlan } from '../domain/plan'
 import type { UserId } from '../domain/types'
 import { clearDatabaseForTests, getDatabase } from './database'
 import { LocalFinanceRepository } from './localFinanceRepository'
@@ -158,16 +159,16 @@ describe('LocalFinanceRepository', () => {
   it('converts a wrongly-entered future movement into a pending planned item', async () => {
     const repository = new LocalFinanceRepository()
     const transaction = await repository.createTransaction({ ...input('expense', 6_500), concept: 'Reforma cocina', date: '2026-09-20' }, 'esther')
-    const item = await repository.convertTransactionToPlannedItem(transaction.id, 'david')
+    await repository.convertTransactionToPlannedItem(transaction.id, 'david')
+    const [item] = await repository.listPlannedItems()
     expect(item).toMatchObject({ source: 'manual', kind: 'expense', amountCents: 6_500, concept: 'Reforma cocina',
       date: '2026-09-20', accountId: 'account-1', categoryId: 'category-1', status: 'pending', createdBy: 'david' })
     expect(await repository.listTransactions()).toEqual([])
-    expect(await repository.listPlannedItems()).toEqual([item])
     expect((await repository.pendingOperations()).map((operation) => [operation.entityType, operation.kind]))
       .toEqual([['transaction', 'create'], ['transaction', 'delete'], ['plannedItem', 'create']])
   })
 
-  it('refuses to convert a transfer or a movement already linked to a recurrence or a previous planned item', async () => {
+  it('refuses to convert a transfer, but converting a materialized recurrence just un-materializes it back to pending', async () => {
     const repository = new LocalFinanceRepository()
     const transfer = await repository.createTransaction({ kind: 'transfer', amountCents: 1_000, concept: 'Traspaso', note: '',
       date: '2026-09-20', accountId: null, categoryId: null, sourceAccountId: 'account-1', destinationAccountId: 'account-2' }, 'david')
@@ -177,12 +178,24 @@ describe('LocalFinanceRepository', () => {
       kind: 'expense', amountCents: 6_500, concept: 'Internet', note: '', accountId: 'account-1', categoryId: 'category-1',
       frequency: 'monthly', startDate: '2026-09-14', endDate: null,
     }, 'david')
-    await expect(repository.convertTransactionToPlannedItem(recurring.id, 'david')).rejects.toThrow('vinculado')
+    await repository.convertTransactionToPlannedItem(recurring.id, 'esther')
+    expect((await repository.listTransactions()).some((item) => item.id === recurring.id)).toBe(false)
+    expect(await repository.listPlannedItems()).toEqual([]) // no manual previsto duplicado: lo genera la propia regla
+    const [rule] = await repository.listRecurringRules()
+    const plan = buildMonthlyPlan('2026-09', [rule], [], [], [])
+    expect(plan.items).toEqual([expect.objectContaining({ recurringRuleId: rule.id, date: '2026-09-14', status: 'pending', transactionId: null })])
+  })
 
+  it('converting a movement materialized from a manual previsto leaves the original previsto pending again', async () => {
+    const repository = new LocalFinanceRepository()
     const item = await repository.createPlannedItem({ kind: 'expense', amountCents: 4_250, concept: 'Seguro puntual', note: '',
-      date: '2026-08-20', accountId: 'account-1', categoryId: 'category-1' }, 'david')
+      date: '2026-09-20', accountId: 'account-1', categoryId: 'category-1' }, 'david')
     const materialized = await repository.materializePlannedItem(item.id, 'david')
-    await expect(repository.convertTransactionToPlannedItem(materialized.id, 'david')).rejects.toThrow('vinculado')
+    await repository.convertTransactionToPlannedItem(materialized.id, 'esther')
+    expect(await repository.listTransactions()).toEqual([])
+    expect(await repository.listPlannedItems()).toEqual([item]) // el previsto original sigue igual, no se duplica
+    const plan = buildMonthlyPlan('2026-09', [], [item], [], [])
+    expect(plan.items).toEqual([expect.objectContaining({ id: item.id, status: 'pending', transactionId: null })])
   })
 
   it('stores one deterministic omission per recurring occurrence and can reactivate it', async () => {
