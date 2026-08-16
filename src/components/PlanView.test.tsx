@@ -19,7 +19,7 @@ const budget: Budget = { ...sync, id: 'budget', month, categoryId: category.id, 
 function props() {
   return { transactions: [], rules: [rule], plannedItems: [item], budgets: [budget], monthlyPlans: [], accounts: [account], categories: [category],
     goals: [], goalAllocations: [], closures: [],
-    onCreateItem: vi.fn(), onUpdateItem: vi.fn(), onDeleteItem: vi.fn(), onSetItemStatus: vi.fn(), onSetRecurringStatus: vi.fn(),
+    onCreateItem: vi.fn(), onSaveRecurring: vi.fn().mockResolvedValue(undefined), onUpdateItem: vi.fn(), onDeleteItem: vi.fn(), onSetItemStatus: vi.fn(), onSetRecurringStatus: vi.fn(),
     onMaterialize: vi.fn().mockResolvedValue(undefined), onSetBudget: vi.fn().mockResolvedValue(undefined), onSetDistribution: vi.fn().mockResolvedValue(undefined),
     onCloseMonth: vi.fn().mockResolvedValue(undefined), onReopenMonth: vi.fn().mockResolvedValue(undefined) }
 }
@@ -31,6 +31,26 @@ describe('PlanView', () => {
     expect(screen.getByText('Seguro puntual')).toBeInTheDocument()
     fireEvent.click(screen.getAllByRole('button', { name: 'Marcar pagado' })[1])
     await vi.waitFor(() => expect(callbacks.onMaterialize).toHaveBeenCalledWith(expect.objectContaining({ id: item.id, status: 'pending' })))
+  })
+
+  it('creates a recurring forecast instead of a one-off item when "Se repite" is checked, without registering any movement', async () => {
+    const callbacks = props(); render(<PlanView {...callbacks} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Añadir' }))
+    fireEvent.change(screen.getByLabelText('Concepto'), { target: { value: 'Gimnasio' } })
+    fireEvent.change(screen.getByLabelText('Importe'), { target: { value: '40,00' } })
+    fireEvent.change(screen.getByLabelText('Categoría'), { target: { value: category.id } })
+    fireEvent.change(screen.getByLabelText('Fecha prevista'), { target: { value: '2026-09-01' } })
+    fireEvent.click(screen.getByLabelText('Se repite'))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar recurrencia' }))
+    await vi.waitFor(() => expect(callbacks.onSaveRecurring).toHaveBeenCalledWith({ kind: 'expense', amountCents: 4_000, concept: 'Gimnasio', note: '',
+      accountId: account.id, categoryId: category.id, frequency: 'monthly', startDate: '2026-09-01', endDate: null }))
+    expect(callbacks.onCreateItem).not.toHaveBeenCalled()
+  })
+
+  it('does not offer "Se repite" while editing an existing planned item', () => {
+    const callbacks = props(); render(<PlanView {...callbacks} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }))
+    expect(screen.queryByLabelText('Se repite')).not.toBeInTheDocument()
   })
 
   it('edits a budget in integer cents and saves the monthly distribution', async () => {

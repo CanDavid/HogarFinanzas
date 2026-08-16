@@ -102,6 +102,7 @@ export default function App() {
       {page === 'plan' && <PlanView transactions={transactions} rules={recurringRules} plannedItems={plannedItems} budgets={budgets} monthlyPlans={monthlyPlans} accounts={accounts} categories={categories}
         goals={goals} goalAllocations={goalAllocations} closures={monthlyClosures}
         onCreateItem={(input) => afterLocalChange(() => repository.createPlannedItem(input, session.userId))}
+        onSaveRecurring={(input) => afterLocalChange(() => repository.createRecurringRule(input, session.userId))}
         onUpdateItem={(id, input) => afterLocalChange(() => repository.updatePlannedItem(id, input))}
         onDeleteItem={(id) => afterLocalChange(() => repository.deletePlannedItem(id))}
         onSetItemStatus={(id, status) => afterLocalChange(() => repository.setPlannedItemStatus(id, status))}

@@ -23,7 +23,7 @@ export function RecurringManager({ rules, transactions, accounts, categories, on
     setError(''); try { await action() } catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo completar la acción.') }
   }
   return <section className="management recurring-management"><div className="section-title"><h2>Reglas recurrentes</h2><span>{rules.length}</span><button className="text-action" onClick={() => { setEditing(undefined); setAdding(true) }}>Nueva</button></div>
-    <p className="management-intro">Prepara ingresos y gastos futuros. Registrar una ocurrencia siempre reutiliza el mismo identificador para evitar duplicados.</p>
+    <p className="management-intro">Crea una previsión recurrente sin necesidad de registrar ningún pago: aparecerá como pendiente cada mes en Plan → Previstos hasta que la registres. Registrar una ocurrencia siempre reutiliza el mismo identificador para evitar duplicados.</p>
     {(adding || editing) && <div className="card"><RecurringRuleForm rule={editing} accounts={accounts} categories={categories} onCancel={() => { setAdding(false); setEditing(undefined) }} onSave={async (input) => run(async () => {
       if (editing) await onUpdate(editing.id, input); else await onCreate(input)
       setAdding(false); setEditing(undefined)
@@ -65,7 +65,7 @@ function RecurringRuleForm({ rule, accounts, categories, onSave, onCancel }: {
     <label>Cuenta<select value={accountId} onChange={(event) => setAccountId(event.target.value)} required><option value="">Selecciona…</option>{activeAccounts.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
     <label>Categoría<select value={categoryId} onChange={(event) => setCategoryId(event.target.value)} required><option value="">Selecciona…</option>{matchingCategories.map((item) => <option key={item.id} value={item.id}>{item.icon} {item.name}</option>)}</select></label>
     <label>Frecuencia<select value={frequency} onChange={(event) => setFrequency(event.target.value as RecurrenceFrequency)}><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option><option value="annual">Anual</option></select></label>
-    <label>Próxima fecha<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} required /></label>
+    <label>Primera fecha prevista<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} required /></label>
     <label>Fecha final opcional<input type="date" value={endDate} min={startDate} onChange={(event) => setEndDate(event.target.value)} /></label>
     <label>Nota opcional<textarea value={note} onChange={(event) => setNote(event.target.value)} maxLength={500} rows={2} /></label>
     {error && <p className="error" role="alert">{error}</p>}<div className="form-actions"><button type="button" className="secondary" onClick={onCancel}>Cancelar</button><button disabled={saving}>{saving ? 'Guardando…' : 'Guardar'}</button></div></form>

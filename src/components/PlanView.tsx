@@ -5,7 +5,7 @@ import { formatEuro, parseEuroToCents, parseNonNegativeEuroToCents } from '../do
 import { buildMonthlyPlan, type PlanItemView } from '../domain/plan'
 import { calculatePortfolioBreakdown } from '../domain/finance'
 import { buildGoalPortfolio } from '../domain/goals'
-import type { Account, Budget, Category, Goal, GoalAllocation, MonthlyClosure, MonthlyClosureInput, MonthlyPlan, PlannedItem, PlannedItemInput, RecurringRule, Transaction } from '../domain/types'
+import type { Account, Budget, Category, Goal, GoalAllocation, MonthlyClosure, MonthlyClosureInput, MonthlyPlan, PlannedItem, PlannedItemInput, RecurrenceFrequency, RecurringRule, RecurringRuleInput, Transaction } from '../domain/types'
 
 type PlanSection = 'forecast' | 'budgets' | 'distribution'
 
@@ -21,6 +21,7 @@ interface Props {
   goalAllocations: GoalAllocation[]
   closures: MonthlyClosure[]
   onCreateItem(input: PlannedItemInput): Promise<void>
+  onSaveRecurring(input: RecurringRuleInput): Promise<void>
   onUpdateItem(id: string, input: PlannedItemInput): Promise<void>
   onDeleteItem(id: string): Promise<void>
   onSetItemStatus(id: string, status: PlannedItem['status']): Promise<void>
@@ -71,6 +72,7 @@ export function PlanView(props: Props) {
     {section === 'forecast' && <ForecastSection planItems={plan.items} accounts={props.accounts} categories={props.categories} adding={adding} editing={editing} locked={locked}
       onStartAdd={() => { setEditing(undefined); setAdding(true) }} onEdit={(item) => { const stored = props.plannedItems.find((value) => value.id === item.id); if (stored) { setEditing(stored); setAdding(false) } }}
       onCancel={() => { setAdding(false); setEditing(undefined) }} onSave={(input) => run(async () => { if (editing) await props.onUpdateItem(editing.id, input); else await props.onCreateItem(input); setAdding(false); setEditing(undefined) })}
+      onSaveRecurring={(input) => run(async () => { await props.onSaveRecurring(input); setAdding(false) })}
       onMaterialize={(item) => run(() => props.onMaterialize(item))} onToggle={(item, status) => run(() => item.source === 'recurring' ? props.onSetRecurringStatus(item.recurringRuleId!, item.date, status) : props.onSetItemStatus(item.id, status))}
       onDelete={(item) => { if (window.confirm(`¿Eliminar el previsto “${item.concept}”?`)) void run(() => props.onDeleteItem(item.id)) }} />}
     {section === 'budgets' && <BudgetSection key={month} month={month} progress={plan.budgets} categories={props.categories} locked={locked} onSave={(categoryId, amount) => run(() => props.onSetBudget(month, categoryId, amount))} />}
@@ -106,32 +108,46 @@ function ClosurePanel({ month, closure, plan, transactions, portfolio, closing, 
     {error && <p className="error" role="alert">{error}</p>}<div className="form-actions"><button type="button" className="secondary" onClick={onCancel}>Cancelar</button><button disabled={saving}>{saving ? 'Cerrando…' : closure ? 'Volver a cerrar' : 'Confirmar cierre'}</button></div></form>
 }
 
-function ForecastSection({ planItems, accounts, categories, adding, editing, locked, onStartAdd, onEdit, onCancel, onSave, onMaterialize, onToggle, onDelete }: {
+function ForecastSection({ planItems, accounts, categories, adding, editing, locked, onStartAdd, onEdit, onCancel, onSave, onSaveRecurring, onMaterialize, onToggle, onDelete }: {
   planItems: PlanItemView[]; accounts: Account[]; categories: Category[]; adding: boolean; editing?: PlannedItem; locked: boolean
-  onStartAdd(): void; onEdit(item: PlanItemView): void; onCancel(): void; onSave(input: PlannedItemInput): Promise<void>
+  onStartAdd(): void; onEdit(item: PlanItemView): void; onCancel(): void; onSave(input: PlannedItemInput): Promise<void>; onSaveRecurring(input: RecurringRuleInput): Promise<void>
   onMaterialize(item: PlanItemView): Promise<void>; onToggle(item: PlanItemView, status: PlannedItem['status']): Promise<void>; onDelete(item: PlanItemView): void
 }) {
   return <section className="plan-section"><div className="section-title"><h2>Ingresos y gastos previstos</h2><span>{planItems.length}</span>{!locked && <button className="text-action" onClick={onStartAdd}>Añadir</button>}</div>
-    {!locked && (adding || editing) && <div className="card"><PlannedItemForm item={editing} accounts={accounts} categories={categories} onSave={onSave} onCancel={onCancel} /></div>}
+    {!locked && (adding || editing) && <div className="card"><PlannedItemForm item={editing} accounts={accounts} categories={categories} onSave={onSave} onSaveRecurring={onSaveRecurring} onCancel={onCancel} /></div>}
     {planItems.length === 0 ? <p className="empty">No hay previstos para este mes. Puedes añadir uno o configurar una recurrencia.</p> : <ul className="plan-items">{planItems.map((item) => <li key={item.id} className={item.status}><div><strong>{item.concept}</strong><small>{shortDate(item.date)} · {item.source === 'recurring' ? 'Recurrente' : 'Manual'} · {statusLabel(item.status)}</small></div><strong className={item.kind}>{item.kind === 'expense' ? '−' : '+'}{formatEuro(item.amountCents)}</strong>{!locked && <div className="plan-item-actions">{item.status === 'pending' && <><button className="text-action" onClick={() => void onMaterialize(item)}>{item.kind === 'expense' ? 'Marcar pagado' : 'Marcar recibido'}</button><button className="text-action muted" onClick={() => void onToggle(item, 'omitted')}>Omitir</button></>}
       {item.status === 'omitted' && <button className="text-action" onClick={() => void onToggle(item, 'pending')}>Reactivar</button>}{item.source === 'manual' && item.status !== 'realized' && <><button className="text-action" onClick={() => onEdit(item)}>Editar</button><button className="delete" onClick={() => onDelete(item)}>Eliminar</button></>}</div>}</li>)}</ul>}
   </section>
 }
 
-function PlannedItemForm({ item, accounts, categories, onSave, onCancel }: { item?: PlannedItem; accounts: Account[]; categories: Category[]; onSave(input: PlannedItemInput): Promise<void>; onCancel(): void }) {
+function PlannedItemForm({ item, accounts, categories, onSave, onSaveRecurring, onCancel }: {
+  item?: PlannedItem; accounts: Account[]; categories: Category[]; onSave(input: PlannedItemInput): Promise<void>; onSaveRecurring(input: RecurringRuleInput): Promise<void>; onCancel(): void
+}) {
   const [kind, setKind] = useState<'income' | 'expense'>(item?.kind ?? 'expense'); const [amount, setAmount] = useState(item ? (item.amountCents / 100).toFixed(2) : '')
   const [concept, setConcept] = useState(item?.concept ?? ''); const [note, setNote] = useState(item?.note ?? ''); const [date, setDate] = useState(item?.date ?? localDateOnly())
   const activeAccounts = accounts.filter((value) => !value.archivedAt || value.id === item?.accountId); const matchingCategories = categories.filter((value) => value.kind === kind && (!value.archivedAt || value.id === item?.categoryId))
   const [accountId, setAccountId] = useState(item?.accountId ?? activeAccounts[0]?.id ?? ''); const [categoryId, setCategoryId] = useState(item?.categoryId ?? '')
+  const [repeats, setRepeats] = useState(false); const [frequency, setFrequency] = useState<RecurrenceFrequency>('monthly'); const [endDate, setEndDate] = useState('')
   const [saving, setSaving] = useState(false); const [error, setError] = useState('')
-  async function submit(event: FormEvent) { event.preventDefault(); setSaving(true); setError(''); try { await onSave({ kind, amountCents: parseEuroToCents(amount), concept: concept.trim(), note: note.trim(), date, accountId, categoryId }) }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo guardar el previsto.') } finally { setSaving(false) } }
+  async function submit(event: FormEvent) {
+    event.preventDefault(); setSaving(true); setError('')
+    try {
+      if (!item && repeats) await onSaveRecurring({ kind, amountCents: parseEuroToCents(amount), concept: concept.trim(), note: note.trim(), accountId, categoryId, frequency, startDate: date, endDate: endDate || null })
+      else await onSave({ kind, amountCents: parseEuroToCents(amount), concept: concept.trim(), note: note.trim(), date, accountId, categoryId })
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo guardar el previsto.') } finally { setSaving(false) }
+  }
   return <form className="compact-form" onSubmit={submit} aria-label={item ? 'Editar previsto' : 'Nuevo previsto'}><div className="segmented"><button type="button" aria-pressed={kind === 'expense'} onClick={() => { setKind('expense'); setCategoryId('') }}>Gasto</button><button type="button" aria-pressed={kind === 'income'} onClick={() => { setKind('income'); setCategoryId('') }}>Ingreso</button></div>
     <label>Concepto<input value={concept} onChange={(event) => setConcept(event.target.value)} maxLength={120} required /></label><label>Importe<input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0,00" required /></label>
     <label>Cuenta<select value={accountId} onChange={(event) => setAccountId(event.target.value)} required><option value="">Selecciona…</option>{activeAccounts.map((value) => <option key={value.id} value={value.id}>{value.name}</option>)}</select></label>
     <label>Categoría<select value={categoryId} onChange={(event) => setCategoryId(event.target.value)} required><option value="">Selecciona…</option>{matchingCategories.map((value) => <option key={value.id} value={value.id}>{value.icon} {value.name}</option>)}</select></label>
-    <label>Fecha prevista<input type="date" value={date} onChange={(event) => setDate(event.target.value)} required /></label><label>Nota opcional<textarea value={note} onChange={(event) => setNote(event.target.value)} maxLength={500} rows={2} /></label>
-    {error && <p className="error" role="alert">{error}</p>}<div className="form-actions"><button type="button" className="secondary" onClick={onCancel}>Cancelar</button><button disabled={saving}>{saving ? 'Guardando…' : 'Guardar previsto'}</button></div></form>
+    <label>Fecha prevista<input type="date" value={date} onChange={(event) => setDate(event.target.value)} required /></label>
+    {!item && <div className="recurrence-fields"><label className="check"><input type="checkbox" checked={repeats} onChange={(event) => setRepeats(event.target.checked)} /><span>Se repite</span></label>
+      {repeats && <div className="recurrence-options"><label>Frecuencia<select value={frequency} onChange={(event) => setFrequency(event.target.value as RecurrenceFrequency)}><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option><option value="annual">Anual</option></select></label>
+        <label>Fecha final opcional<input type="date" value={endDate} min={date} onChange={(event) => setEndDate(event.target.value)} /></label>
+        <small>Se guardará solo como previsión: no crea ningún movimiento hasta que lo registres.</small></div>}
+    </div>}
+    <label>Nota opcional<textarea value={note} onChange={(event) => setNote(event.target.value)} maxLength={500} rows={2} /></label>
+    {error && <p className="error" role="alert">{error}</p>}<div className="form-actions"><button type="button" className="secondary" onClick={onCancel}>Cancelar</button><button disabled={saving}>{saving ? 'Guardando…' : repeats ? 'Guardar recurrencia' : 'Guardar previsto'}</button></div></form>
 }
 
 function BudgetSection({ month, progress, categories, locked, onSave }: { month: string; progress: ReturnType<typeof buildMonthlyPlan>['budgets']; categories: Category[]; locked: boolean; onSave(categoryId: string, amount: number): Promise<void> }) {

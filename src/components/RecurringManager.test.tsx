@@ -19,6 +19,15 @@ describe('RecurringManager', () => {
     await vi.waitFor(() => expect(materialize).toHaveBeenCalledWith(rule.id, '2026-09-01'))
   })
 
+  it('makes clear a recurring forecast needs no payment registered yet', () => {
+    const create = vi.fn().mockResolvedValue(undefined)
+    render(<RecurringManager rules={[]} transactions={[]} accounts={[account]} categories={[category]} onCreate={create} onUpdate={vi.fn()}
+      onSetActive={vi.fn()} onMaterialize={vi.fn()} />)
+    expect(screen.getByText(/sin necesidad de registrar ningún pago/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Nueva' }))
+    expect(screen.getByLabelText('Primera fecha prevista')).toBeInTheDocument()
+  })
+
   it('pauses and reactivates a rule without deleting it', async () => {
     const setActive = vi.fn().mockResolvedValue(undefined)
     const { rerender } = render(<RecurringManager rules={[rule]} transactions={[]} accounts={[account]} categories={[category]} onCreate={vi.fn()} onUpdate={vi.fn()}
