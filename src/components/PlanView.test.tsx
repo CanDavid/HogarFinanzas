@@ -50,6 +50,23 @@ describe('PlanView', () => {
     await vi.waitFor(() => expect(callbacks.onSetDistribution).toHaveBeenCalledWith(month, 5_000, 2_500))
   })
 
+  it('saves a budget or distribution of exactly zero, as its own helper text invites', async () => {
+    const callbacks = props(); render(<PlanView {...callbacks} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Presupuestos' }))
+    fireEvent.click(screen.getByRole('button', { name: /Vivienda/ }))
+    fireEvent.change(screen.getByLabelText('Presupuesto'), { target: { value: '0' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar presupuesto' }))
+    await vi.waitFor(() => expect(callbacks.onSetBudget).toHaveBeenCalledWith(month, category.id, 0))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Distribución' }))
+    fireEvent.change(screen.getByLabelText('Ahorro'), { target: { value: '0' } })
+    fireEvent.change(screen.getByLabelText('Inversión'), { target: { value: '0' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar distribución' }))
+    await vi.waitFor(() => expect(callbacks.onSetDistribution).toHaveBeenCalledWith(month, 0, 0))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('states the exceeded amount without relying only on the progress color', () => {
     const expense: Transaction = { ...sync, id: 'expense', kind: 'expense', amountCents: 121_000, concept: 'Compra grande', note: '',
       date: `${month}-15`, accountId: account.id, categoryId: category.id, sourceAccountId: null, destinationAccountId: null }
