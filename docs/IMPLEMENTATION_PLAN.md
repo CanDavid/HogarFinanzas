@@ -409,7 +409,7 @@ Estado: **completada — 2026-08-16**.
 
 ## Fase 9 — Robustez, rendimiento, accesibilidad, exportación/importación y copias
 
-Estado: **en desarrollo — 2026-08-16**.
+Estado: **completada — 2026-08-16**.
 
 ### Alcance
 
@@ -439,7 +439,11 @@ Estado: **en desarrollo — 2026-08-16**.
 - Revisión manual en navegador a 390 × 844 px, modo oscuro: sin desplazamiento horizontal ni errores de consola en el arranque. La revisión completa del flujo de restauración con datos reales corresponde a `IPHONE_PHASE9.md`, porque requiere una sesión real contra el Web App.
 - `git diff --check` sin incidencias. El diff completo y el historial no contienen patrones de claves API, tokens de GitHub, contraseñas ni claves privadas.
 - No hay migración ni nuevo despliegue de Apps Script: el Web App continúa en `7.0.0-phase7`. La corrección de troceo de sincronización y la copia de seguridad son enteramente del lado cliente.
-- Pendiente exclusivamente de checkpoint: completar `IPHONE_PHASE9.md` en los dispositivos de David y Esther.
+- Validación externa completada: el usuario confirmó el 2026-08-16 que toda la matriz de `IPHONE_PHASE9.md` funciona correctamente en los dos iPhone.
+
+### Cierre del proyecto
+
+Con la Fase 9 validada, las nueve fases planificadas en `docs/TECHNICAL_SPEC.md` §11 están completas y confirmadas en ambos iPhone. No hay fases futuras anticipadas.
 
 ## Registro de decisiones
 
