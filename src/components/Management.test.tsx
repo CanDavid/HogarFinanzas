@@ -38,4 +38,16 @@ describe('Phase 2 management', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ajustar saldo' }))
     expect(adjust).toHaveBeenCalledWith(account.id)
   })
+
+  it('in browse mode, selecting an account navigates instead of editing it and hides management controls', () => {
+    const select = vi.fn()
+    const account = { id: 'account-1', createdAt: '', updatedAt: '', deletedAt: null, createdBy: 'david' as const, version: 1, changeSequence: 1,
+      name: 'Principal', type: 'checking' as const, initialBalanceCents: 0, includeInNetWorth: true, includeInLiquidity: true, archivedAt: null }
+    render(<AccountManager accounts={[account]} balances={new Map()} onCreate={vi.fn()} onUpdate={vi.fn()} onArchive={vi.fn()} onRestore={vi.fn()} onSelectAccount={select} />)
+    fireEvent.click(screen.getByRole('button', { name: /Principal/ }))
+    expect(select).toHaveBeenCalledWith(account.id)
+    expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ajustar saldo' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Archivar' })).not.toBeInTheDocument()
+  })
 })

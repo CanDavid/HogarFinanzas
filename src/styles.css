@@ -88,9 +88,10 @@ form > button, .form-actions button { min-height: 2.8rem; padding: .65rem 1rem; 
 .movement-main span:nth-child(2) { min-width: 0; }
 .movement-main strong, .movement-main small { display: block; }
 .movement-main small { color: #6d7c77; text-transform: capitalize; }
-.movement-main > strong { text-align: right; }
-.movement-main > strong.expense { color: #a84a33; }
-.movement-main > strong.income { color: #287159; }
+.movement-amount { text-align: right; }
+.movement-amount strong.expense { color: #a84a33; }
+.movement-amount strong.income { color: #287159; }
+.movement-amount small { text-transform: none; }
 .movement-main:disabled { color: inherit; opacity: .72; cursor: default; }
 .closed-badge { display: inline-block; margin-top: .2rem; padding: .08rem .35rem; border-radius: 1rem; color: #685a32; background: #f3ebcf; font-size: .62rem; font-weight: 750; }
 .kind-icon { display: grid; place-items: center; width: 2.15rem; height: 2.15rem; border-radius: .7rem; background: #e7ebe7; font-weight: 900; }

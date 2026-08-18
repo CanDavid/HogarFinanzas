@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { normalizeDateOnly, localDateOnly } from '../domain/dates'
+import { calculateRunningBalances } from '../domain/finance'
 import { DEFAULT_MOVEMENT_FILTERS, filterMovements, groupMovements, type MovementFilters } from '../domain/movements'
 import { formatEuro } from '../domain/money'
 import { isMonthClosed } from '../domain/closures'
@@ -17,10 +18,12 @@ export function MovementsView({ transactions, accounts, categories, closures, st
   const [draftKind, setDraftKind] = useState(initialKind)
   const [draftAccountId, setDraftAccountId] = useState(initialAccountId)
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [filters, setFilters] = useState<MovementFilters>(DEFAULT_MOVEMENT_FILTERS)
+  const [filters, setFilters] = useState<MovementFilters>(() =>
+    !startAdding && initialAccountId ? { ...DEFAULT_MOVEMENT_FILTERS, accountId: initialAccountId, period: 'all' } : DEFAULT_MOVEMENT_FILTERS)
   const today = localDateOnly()
   const filtered = useMemo(() => filterMovements(transactions, filters, accounts, categories, today), [transactions, filters, accounts, categories, today])
   const groups = useMemo(() => groupMovements(filtered), [filtered])
+  const runningBalances = useMemo(() => calculateRunningBalances(accounts, transactions), [accounts, transactions])
   const accountNames = useMemo(() => new Map(accounts.map((item) => [item.id, item.name])), [accounts])
   const categoryNames = useMemo(() => new Map(categories.map((item) => [item.id, `${item.icon} ${item.name}`])), [categories])
   const formOpen = adding || Boolean(editing)
@@ -44,7 +47,7 @@ export function MovementsView({ transactions, accounts, categories, closures, st
         const locked = isMonthClosed(item.date.slice(0, 7), closures)
         const convertible = (item.kind === 'income' || item.kind === 'expense') && item.date > today
         return <li key={item.id} className={locked ? 'locked' : ''}>
-        <button className="movement-main" onClick={() => edit(item)} disabled={locked} aria-label={locked ? `${item.concept}, mes cerrado` : undefined}><span className={`kind-icon ${item.kind}`} aria-hidden="true">{kindIcon(item.kind)}</span><span><strong>{item.concept}{item.recurringRuleId && <span className="recurring-badge">Recurrente</span>}{locked && <span className="closed-badge">Cerrado</span>}</strong><small>{movementContext(item, accountNames, categoryNames)} · {displayUser(item.createdBy)}</small>{item.note && <small className="movement-note">{item.note}</small>}</span><strong className={item.kind}>{movementAmount(item)}</strong></button>
+        <button className="movement-main" onClick={() => edit(item)} disabled={locked} aria-label={locked ? `${item.concept}, mes cerrado` : undefined}><span className={`kind-icon ${item.kind}`} aria-hidden="true">{kindIcon(item.kind)}</span><span><strong>{item.concept}{item.recurringRuleId && <span className="recurring-badge">Recurrente</span>}{locked && <span className="closed-badge">Cerrado</span>}</strong><small>{movementContext(item, accountNames, categoryNames)} · {displayUser(item.createdBy)}</small>{item.note && <small className="movement-note">{item.note}</small>}</span><span className="movement-amount"><strong className={item.kind}>{movementAmount(item)}</strong>{runningBalances.has(item.id) && <small>{formatEuro(runningBalances.get(item.id)!)}</small>}</span></button>
         {!locked && <div className="movement-actions"><button className="delete" onClick={() => void onDelete(item)} aria-label={`Eliminar ${item.concept}`}>Eliminar</button>
           {convertible && <button className="text-action" onClick={() => void onConvertToPlanned(item)} aria-label={`Convertir ${item.concept} en previsto`}>Convertir a Previsto</button>}</div>}</li> })}</ul></div>)}
     </section>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculatePortfolio, calculatePortfolioBreakdown, calculateTotals } from './finance'
+import { calculatePortfolio, calculatePortfolioBreakdown, calculateRunningBalances, calculateTotals } from './finance'
 import type { Account, Transaction, TransactionKind } from './types'
 
 function movement(kind: TransactionKind, amountCents: number): Transaction {
@@ -49,5 +49,29 @@ describe('financial totals', () => {
     expect(result.byType.get('checking')).toBe(10_000)
     expect(result.byType.get('savings')).toBe(25_000)
     expect(result.byType.get('investment')).toBe(0)
+  })
+})
+
+describe('calculateRunningBalances', () => {
+  it('accumulates the resulting balance of the affected account after each movement', () => {
+    const income = { ...movement('income', 10000), id: 'i1', date: '2026-08-01' }
+    const expense = { ...movement('expense', 4000), id: 'e1', date: '2026-08-02' }
+    const result = calculateRunningBalances([account('a', 5000)], [income, expense])
+    expect(result.get('i1')).toBe(15000)
+    expect(result.get('e1')).toBe(11000)
+  })
+
+  it('for a transfer only records the resulting balance of the destination account', () => {
+    const transfer = { ...movement('transfer', 3000), id: 't1' }
+    const result = calculateRunningBalances([account('a', 10000), account('b', 5000)], [transfer])
+    expect(result.get('t1')).toBe(8000)
+  })
+
+  it('breaks ties on the same date using createdAt order', () => {
+    const first = { ...movement('income', 1000), id: 'i1', createdAt: '2026-08-14T08:00:00.000Z' }
+    const second = { ...movement('income', 2000), id: 'i2', createdAt: '2026-08-14T09:00:00.000Z' }
+    const result = calculateRunningBalances([account('a', 0)], [second, first])
+    expect(result.get('i1')).toBe(1000)
+    expect(result.get('i2')).toBe(3000)
   })
 })

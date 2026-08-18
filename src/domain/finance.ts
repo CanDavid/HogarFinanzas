@@ -39,6 +39,29 @@ export function calculatePortfolioBreakdown(accounts: Account[], transactions: T
   return { ...portfolio, byType }
 }
 
+export function calculateRunningBalances(accounts: Account[], transactions: Transaction[]): ReadonlyMap<string, number> {
+  const activeRecords = accounts.filter((account) => !account.deletedAt)
+  const balances = new Map(activeRecords.map((account) => [account.id, account.initialBalanceCents]))
+  const result = new Map<string, number>()
+  const ordered = [...transactions.filter((item) => !item.deletedAt)].sort(chronological)
+  for (const transaction of ordered) {
+    if (transaction.kind === 'income') apply(balances, transaction.accountId, transaction.amountCents)
+    else if (transaction.kind === 'expense') apply(balances, transaction.accountId, -transaction.amountCents)
+    else if (transaction.kind === 'adjustment') apply(balances, transaction.accountId, transaction.amountCents)
+    else if (transaction.kind === 'transfer') {
+      apply(balances, transaction.sourceAccountId, -transaction.amountCents)
+      apply(balances, transaction.destinationAccountId, transaction.amountCents)
+    }
+    const targetAccountId = transaction.kind === 'transfer' ? transaction.destinationAccountId : transaction.accountId
+    if (targetAccountId && balances.has(targetAccountId)) result.set(transaction.id, balances.get(targetAccountId)!)
+  }
+  return result
+}
+
+function chronological(left: Transaction, right: Transaction): number {
+  return left.date.localeCompare(right.date) || left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id)
+}
+
 function apply(balances: Map<string, number>, accountId: string | null, delta: number): void {
   if (!accountId || !balances.has(accountId)) return
   balances.set(accountId, checkedAdd(balances.get(accountId) ?? 0, delta))

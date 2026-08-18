@@ -22,7 +22,7 @@ import './styles.css'
 const repository = new LocalFinanceRepository()
 const syncRunner = new SingleFlightRunner()
 type SyncState = 'idle' | 'syncing' | 'ok' | 'error'
-type Page = MainTab | 'settings' | 'accounts' | 'categories' | 'recurring' | 'portfolio' | 'backup'
+type Page = MainTab | 'settings' | 'accounts' | 'accounts-browse' | 'categories' | 'recurring' | 'portfolio' | 'backup'
 interface MovementIntent { key: number; mode: 'list' | 'add'; initialKind?: TransactionKind; initialAccountId?: string }
 
 export default function App() {
@@ -91,13 +91,13 @@ export default function App() {
     setMovementIntent((current) => ({ key: current.key + 1, mode, ...options })); setPage('movements')
   }
   return <div className="app-shell">
-    <header className="topbar">{isMainTab(page) ? <div><p className="eyebrow">Casa compartida</p><h1>{pageTitle(page)}</h1></div> : <div className="secondary-heading"><button className="back-button" onClick={() => setPage(page === 'accounts' || page === 'categories' || page === 'recurring' || page === 'backup' ? 'settings' : 'home')} aria-label="Volver">‹</button><div><p className="eyebrow">{page === 'portfolio' ? 'Inicio' : 'Configuración'}</p><h1>{pageTitle(page)}</h1></div></div>}
+    <header className="topbar">{isMainTab(page) ? <div><p className="eyebrow">Casa compartida</p><h1>{pageTitle(page)}</h1></div> : <div className="secondary-heading"><button className="back-button" onClick={() => setPage(page === 'accounts' || page === 'categories' || page === 'recurring' || page === 'backup' ? 'settings' : 'home')} aria-label="Volver">‹</button><div><p className="eyebrow">{page === 'portfolio' || page === 'accounts-browse' ? 'Inicio' : 'Configuración'}</p><h1>{pageTitle(page)}</h1></div></div>}
       <div className="topbar-actions"><button className="settings-button" onClick={() => setPage('settings')} aria-label="Abrir configuración">⚙</button><button className="avatar" onClick={logout} aria-label={`Cerrar sesión de ${session.userId}`}>{session.userId[0].toUpperCase()}</button></div></header>
     <main>
       <button className={`sync-banner ${syncState}`} onClick={() => void synchronize()} disabled={syncState === 'syncing'} role="status" aria-live="polite"><span aria-hidden="true">{online ? '●' : '○'}</span><span>{syncMessage}{pendingCount ? ` · ${pendingCount} pendientes` : ''}</span><span aria-hidden="true">↻</span></button>
       {page === 'home' && <HomeView transactions={transactions} accounts={accounts} categories={categories} goals={goals} allocations={goalAllocations} closures={monthlyClosures}
         recurringRules={recurringRules} plannedItems={plannedItems} budgets={budgets} monthlyPlans={monthlyPlans}
-        onAddMovement={() => openMovements('add')} onOpenMovements={() => openMovements('list')} onOpenAccounts={() => setPage('accounts')} onOpenCategories={() => setPage('categories')} onOpenPortfolio={() => setPage('portfolio')} onOpenGoals={() => setPage('goals')} />}
+        onAddMovement={() => openMovements('add')} onOpenMovements={() => openMovements('list')} onOpenAccounts={() => setPage('accounts-browse')} onOpenCategories={() => setPage('categories')} onOpenPortfolio={() => setPage('portfolio')} onOpenGoals={() => setPage('goals')} />}
       {page === 'movements' && <MovementsView key={movementIntent.key} transactions={transactions} accounts={accounts} categories={categories} closures={monthlyClosures} startAdding={movementIntent.mode === 'add'} initialKind={movementIntent.initialKind} initialAccountId={movementIntent.initialAccountId} onSave={save} onDelete={remove} onConvertToPlanned={convertToPlanned} />}
       {page === 'plan' && <PlanView transactions={transactions} rules={recurringRules} plannedItems={plannedItems} budgets={budgets} monthlyPlans={monthlyPlans} accounts={accounts} categories={categories}
         goals={goals} goalAllocations={goalAllocations} closures={monthlyClosures}
@@ -144,12 +144,13 @@ export default function App() {
         recurringRules={recurringRules} budgets={budgets} plannedItems={plannedItems} monthlyPlans={monthlyPlans} goals={goals}
         goalAllocations={goalAllocations} monthlyClosures={monthlyClosures}
         onImport={(payload) => afterLocalChange(() => repository.importBackup(payload, session.userId))} />}
-      {page === 'accounts' && <AccountManager accounts={accounts} balances={portfolio.balances}
+      {(page === 'accounts' || page === 'accounts-browse') && <AccountManager accounts={accounts} balances={portfolio.balances}
         onCreate={(input) => afterLocalChange(() => repository.createAccount(input, session.userId))}
         onUpdate={(id, input) => afterLocalChange(() => repository.updateAccount(id, input))}
         onArchive={(id) => afterLocalChange(() => repository.archiveAccount(id))}
         onRestore={(id) => afterLocalChange(() => repository.restoreAccount(id))}
-        onAdjustBalance={(id) => openMovements('add', { initialKind: 'adjustment', initialAccountId: id })} />}
+        onAdjustBalance={page === 'accounts' ? (id) => openMovements('add', { initialKind: 'adjustment', initialAccountId: id }) : undefined}
+        onSelectAccount={page === 'accounts-browse' ? (id) => openMovements('list', { initialAccountId: id }) : undefined} />}
       {page === 'categories' && <CategoryManager categories={categories}
         onCreate={(input) => afterLocalChange(() => repository.createCategory(input, session.userId))}
         onUpdate={(id, input) => afterLocalChange(() => repository.updateCategory(id, input))}
@@ -184,5 +185,5 @@ function Login({ onAuthenticated }: { onAuthenticated(session: Session): void })
 }
 
 function isMainTab(page: Page): page is MainTab { return ['home', 'movements', 'plan', 'goals', 'analysis'].includes(page) }
-function pageTitle(page: Page): string { return page === 'home' ? 'Inicio' : page === 'movements' ? 'Movimientos' : page === 'plan' ? 'Plan' : page === 'goals' ? 'Objetivos' : page === 'analysis' ? 'Análisis' : page === 'accounts' ? 'Cuentas' : page === 'categories' ? 'Categorías' : page === 'recurring' ? 'Recurrentes' : page === 'portfolio' ? 'Patrimonio' : page === 'backup' ? 'Copia de seguridad' : 'Ajustes' }
+function pageTitle(page: Page): string { return page === 'home' ? 'Inicio' : page === 'movements' ? 'Movimientos' : page === 'plan' ? 'Plan' : page === 'goals' ? 'Objetivos' : page === 'analysis' ? 'Análisis' : page === 'accounts' || page === 'accounts-browse' ? 'Cuentas' : page === 'categories' ? 'Categorías' : page === 'recurring' ? 'Recurrentes' : page === 'portfolio' ? 'Patrimonio' : page === 'backup' ? 'Copia de seguridad' : 'Ajustes' }
 function addMonth(month: string, offset: number): string { const [year, value] = month.split('-').map(Number); const date = new Date(Date.UTC(year, value - 1 + offset, 1)); return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}` }

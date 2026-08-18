@@ -81,6 +81,21 @@ describe('MovementsView', () => {
     expect(screen.getByRole('button', { name: 'Convertir Seguro en previsto' })).toBeInTheDocument()
   })
 
+  it('shows the resulting account balance below the amount, using the destination account for transfers', () => {
+    const twoAccounts: Account[] = [...accounts, { ...base, id: 'account-2', name: 'Ahorro', type: 'savings', initialBalanceCents: 5000, includeInNetWorth: true, includeInLiquidity: true, archivedAt: null }]
+    const income = transaction({ id: 'tx-income', kind: 'income', amountCents: 12345, concept: 'Salario', date: '2026-01-05' })
+    const transfer = transaction({ id: 'tx-transfer', kind: 'transfer', concept: 'Traspaso', amountCents: 3000, accountId: null, categoryId: null, sourceAccountId: 'account-1', destinationAccountId: 'account-2', date: '2026-01-06' })
+    render(<MovementsView {...baseProps([income, transfer])} accounts={twoAccounts} />)
+    showAllPeriods()
+    expect(screen.getByText('123,45 €')).toBeInTheDocument()
+    expect(screen.getByText('80,00 €')).toBeInTheDocument()
+  })
+
+  it('pre-filters the list by account and shows every period when opened with an initial account outside add mode', () => {
+    render(<MovementsView {...baseProps([transaction({ date: '2020-01-01' })])} initialAccountId="account-1" />)
+    expect(screen.getByText('Supermercado')).toBeInTheDocument()
+  })
+
   it('locks a movement from a closed month instead of letting it be edited or deleted', () => {
     const closure = { ...base, id: 'closure-1', month: '2026-01', status: 'closed' as const, revision: 1, closedAt: '2026-01-31T20:00:00.000Z',
       closedBy: 'david' as const, reopenedAt: null, reopenedBy: null, transactionCount: 1, pendingIncomeCount: 0, pendingExpenseCount: 0,
